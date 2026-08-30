@@ -23,5 +23,6 @@ dependencies {
     api(project(":core"))
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.coroutines.android)
 }

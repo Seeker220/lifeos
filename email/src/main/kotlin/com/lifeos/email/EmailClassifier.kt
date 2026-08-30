@@ -96,6 +96,15 @@ class EmailClassifier : EmailClassifierPort {
             if (sender.contains("placement") || domain.contains("placement")) {
                 event += 0.15
             }
+            if (domain.contains("codeforces") || domain.contains("leetcode") ||
+                hay.contains("codeforces") || hay.contains("leetcode")
+            ) {
+                event += 0.45
+                deadline += 0.15
+            }
+            if (hay.contains("contest") || hay.contains("round (div")) {
+                event += 0.15
+            }
 
             val penalty = if (penaltyRe.containsMatchIn(hay) || penaltyRe.containsMatchIn(sender)) 0.55 else 0.0
             val ranked = listOf(

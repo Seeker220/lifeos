@@ -25,6 +25,7 @@ android {
         buildConfigField("String", "AZURE_LLM_DEPLOYMENT", "\"${prop("AZURE_LLM_DEPLOYMENT")}\"")
         buildConfigField("String", "AZURE_LLM_API_KEY", "\"${prop("AZURE_LLM_API_KEY")}\"")
         buildConfigField("String", "AZURE_LLM_API_VERSION", "\"${prop("AZURE_LLM_API_VERSION", "2024-10-21")}\"")
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"${prop("GOOGLE_OAUTH_CLIENT_ID")}\"")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -37,6 +38,16 @@ android {
         compose = true
         buildConfig = true
     }
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE",
+                "META-INF/LICENSE",
+            )
+        }
+    }
 }
 
 dependencies {
@@ -46,6 +57,7 @@ dependencies {
     implementation(project(":email"))
     implementation(project(":data"))
     implementation(project(":enforce"))
+    implementation(project(":calendar"))
     implementation(project(":ui"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

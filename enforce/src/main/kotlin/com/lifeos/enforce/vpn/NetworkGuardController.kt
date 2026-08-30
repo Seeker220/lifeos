@@ -18,7 +18,9 @@ class NetworkGuardController(private val context: Context) {
                 LifeOsLog.d("LifeOS/Vpn", "VPN consent missing; skip start")
                 return
             }
-            context.startService(
+            // Foreground start: the guard must survive the app going away, and a plain
+            // startService throws once the caller is in the background.
+            context.startForegroundService(
                 Intent(context, LifeOsVpnService::class.java)
                     .putExtra(LifeOsVpnService.EXTRA_MODE, rules.mode.name)
                     .putStringArrayListExtra(
@@ -41,7 +43,7 @@ class NetworkGuardController(private val context: Context) {
 
     fun stop() {
         runCatching {
-            context.startService(
+            context.startForegroundService(
                 Intent(context, LifeOsVpnService::class.java)
                     .putExtra(LifeOsVpnService.EXTRA_ACTION, LifeOsVpnService.ACTION_STOP),
             )

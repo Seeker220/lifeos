@@ -57,7 +57,7 @@ class FocusController(
             "LifeOS/Focus",
             "applyRules active=${rules.focus.active} timeouts=${rules.timeouts.size} windows=${rules.focus.windows.size}",
         )
-        if (rules.focus.active || rules.timeouts.isNotEmpty() || rules.focus.windows.isNotEmpty()) {
+        if (shouldRun(store.state.value, rules)) {
             startService()
         } else {
             runCatching { context.stopService(Intent(context, FocusService::class.java)) }
@@ -66,6 +66,8 @@ class FocusController(
 
     fun usageTodayMinutes(packages: List<String>): Map<String, Int> =
         usage.usageTodayMinutes(packages)
+
+    fun usageTodayAll(): Map<String, Int> = usage.usageTodayAll()
 
     private fun startService() {
         runCatching {

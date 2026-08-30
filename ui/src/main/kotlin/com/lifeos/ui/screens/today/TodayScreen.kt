@@ -32,12 +32,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocal
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,12 +53,12 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lifeos.core.Time
-import com.lifeos.core.model.TimelineItem
 import com.lifeos.core.model.TimelineKind
 import com.lifeos.ui.UiPorts
 import com.lifeos.ui.components.AnimatedCheckbox
 import com.lifeos.ui.components.EmptyState
 import com.lifeos.ui.components.LifeOsCard
+import com.lifeos.ui.components.LifeOsSnackbarHost
 import com.lifeos.ui.components.LineageChip
 import com.lifeos.ui.components.Pill
 import com.lifeos.ui.components.PrimaryButton
@@ -68,6 +66,7 @@ import com.lifeos.ui.components.ProgressRing
 import com.lifeos.ui.components.SectionHeader
 import com.lifeos.ui.components.pressable
 import com.lifeos.ui.nav.LifeOsDestination
+import com.lifeos.ui.nav.LocalScreenPadding
 import com.lifeos.ui.theme.AccentVivid
 import com.lifeos.ui.theme.AccentWash
 import com.lifeos.ui.theme.BorderSubtle
@@ -107,19 +106,20 @@ fun TodayScreen(onNavigate: (LifeOsDestination) -> Unit) {
         }
     }
 
-    val nowMinutes = remember(tick) { nowMinutes() }
+    val nowMin = remember(tick) { nowMinutes() }
     val nowHhmm = remember(tick) { Time.formatHhmm(Time.nowEpochMs()) }
     val allItems = remember(ui.groups) { ui.groups.flatMap { it.items } }
-    val hero = remember(allItems, ui.isToday, tick) { resolveHero(allItems, ui.isToday, nowMinutes) }
+    val hero = remember(allItems, ui.isToday, tick) { resolveHero(allItems, ui.isToday, nowMin) }
     val rail = remember(ui.groups, ui.isToday, tick) {
         flattenRail(ui.groups, ui.isToday, nowHhmm)
     }
 
     Scaffold(
         containerColor = Color.Transparent,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { LifeOsSnackbarHost(snackbarHostState) },
     ) { scaffoldPadding ->
-        val contentPadding = consumedScreenPadding(scaffoldPadding)
+        val localPadding = LocalScreenPadding.current
+        val contentPadding = if (localPadding == PaddingValues()) scaffoldPadding else localPadding
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
@@ -128,7 +128,7 @@ fun TodayScreen(onNavigate: (LifeOsDestination) -> Unit) {
                 NowHeroCard(
                     hero = hero,
                     isToday = ui.isToday,
-                    nowMinutes = nowMinutes,
+                    nowMinutes = nowMin,
                     focusActive = ui.focusActive,
                     onPlanDay = { onNavigate(LifeOsDestination.CHAT) },
                     onFocus = {
@@ -176,13 +176,15 @@ fun TodayScreen(onNavigate: (LifeOsDestination) -> Unit) {
                 }
             } else {
                 items(rail, key = { row -> railKey(row) }) { row ->
-                    when (row) {
-                        is RailRow.Header -> TimelineSectionHeader(row.title)
-                        is RailRow.Event -> TimelineRailItem(
-                            item = row.item,
-                            onComplete = { vm.completeItem(row.item.item) },
-                        )
-                        RailRow.Now -> NowLine(timeHhmm = nowHhmm)
+                    Box(Modifier.animateItem()) {
+                        when (row) {
+                            is RailRow.Header -> TimelineSectionHeader(row.title)
+                            is RailRow.Event -> TimelineRailItem(
+                                item = row.item,
+                                onComplete = { vm.completeItem(row.item.item) },
+                            )
+                            RailRow.Now -> NowLine(timeHhmm = nowHhmm)
+                        }
                     }
                 }
             }
@@ -232,10 +234,10 @@ private fun NowHeroCard(
             horizontalArrangement = Arrangement.spacedBy(S.x4),
         ) {
             ProgressRing(progress = progress, size = 56.dp, color = AccentVivid) {
-                val remaining = if (inProgress && hero.endMinutes != null) {
-                    (hero.endMinutes - nowMinutes).coerceAtLeast(0)
-                } else {
-                    hero.startMinutes?.minus(nowMinutes)?.coerceAtLeast(0)
+                val remaining = when {
+                    !isToday -> null
+                    inProgress && hero.endMinutes != null -> (hero.endMinutes - nowMinutes).coerceAtLeast(0)
+                    else -> hero.startMinutes?.minus(nowMinutes)?.coerceAtLeast(0)
                 }
                 if (remaining != null) {
                     Text(
@@ -373,7 +375,6 @@ private fun TimelineRailItem(item: TodayItem, onComplete: () -> Unit) {
         exit = fadeOut(Motion.standard) + shrinkVertically(
             animationSpec = tween(220, easing = FastOutSlowInEasing),
         ),
-        modifier = Modifier.animateItem(),
     ) {
         val timed = item.timed
         val dot = kindColor(item)
@@ -546,34 +547,4 @@ private fun railKey(row: RailRow): String = when (row) {
     is RailRow.Header -> "header-${row.title}"
     is RailRow.Event -> row.item.key
     RailRow.Now -> "now-line"
-}
-
-@Composable
-private fun consumedScreenPadding(fallback: PaddingValues): PaddingValues {
-    val local = remember { resolveScreenPaddingLocal() }
-    return local?.current ?: fallback
-}
-
-private fun resolveScreenPaddingLocal(): CompositionLocal<PaddingValues>? {
-    val classes = listOf(
-        "com.lifeos.ui.nav.LocalScreenPaddingKt",
-        "com.lifeos.ui.shell.LocalScreenPaddingKt",
-        "com.lifeos.ui.nav.LifeOsNavKt",
-        "com.lifeos.ui.shell.ShellKt",
-        "com.lifeos.ui.shell.LifeOsShellKt",
-    )
-    for (name in classes) {
-        val value = runCatching {
-            val clazz = Class.forName(name)
-            val method = clazz.methods.firstOrNull { method ->
-                method.name == "getLocalScreenPadding" && method.parameterCount == 0
-            } ?: return@runCatching null
-            method.invoke(null)
-        }.getOrNull()
-        if (value is CompositionLocal<*>) {
-            @Suppress("UNCHECKED_CAST")
-            return value as CompositionLocal<PaddingValues>
-        }
-    }
-    return null
 }

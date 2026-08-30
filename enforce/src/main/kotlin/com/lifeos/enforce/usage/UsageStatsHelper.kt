@@ -26,13 +26,19 @@ class UsageStatsHelper(private val context: Context) {
     }
 
     fun usageTodayMinutes(packages: Collection<String>): Map<String, Int> {
+        val stats = aggregateToday()
+        return packages.associateWith { (stats[it] ?: 0) }
+    }
+
+    fun usageTodayAll(): Map<String, Int> = aggregateToday().filterValues { it > 0 }
+
+    private fun aggregateToday(): Map<String, Int> {
         return runCatching {
             val usm = context.getSystemService(UsageStatsManager::class.java) ?: return emptyMap()
-            val stats = usm.queryAndAggregateUsageStats(
+            usm.queryAndAggregateUsageStats(
                 Time.startOfTodayEpochMs(),
                 System.currentTimeMillis(),
-            )
-            packages.associateWith { ((stats[it]?.totalTimeInForeground ?: 0L) / 60_000L).toInt() }
+            ).mapValues { (_, stat) -> (stat.totalTimeInForeground / 60_000L).toInt() }
         }.getOrDefault(emptyMap())
     }
 }

@@ -71,6 +71,21 @@ internal object FocusCopy {
             sourceLabel = sourceLabel(rules),
         )
     }
+
+    fun domainSubtitle(domain: String, deadline: String?): String = buildString {
+        append(domain)
+        append(" is blocked on this device.")
+        if (deadline != null) {
+            append(' ')
+            append(deadline)
+        }
+    }
+
+    fun forDomain(domain: String, rules: EnforcementRules): OverlayCopy = OverlayCopy(
+        title = "Blocked site.",
+        subtitle = domainSubtitle(domain, deadlinePhrase(rules)),
+        sourceLabel = sourceLabel(rules),
+    )
 }
 
 internal data class OverlayCopy(

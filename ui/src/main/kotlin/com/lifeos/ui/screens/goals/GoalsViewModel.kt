@@ -8,9 +8,11 @@ import com.lifeos.core.Time
 import com.lifeos.core.model.Action
 import com.lifeos.core.model.ActionOrigin
 import com.lifeos.core.model.AppTimeout
+import com.lifeos.core.model.BlockKind
 import com.lifeos.core.model.CanonicalLifeState
 import com.lifeos.core.model.Habit
 import com.lifeos.core.model.Hardness
+import com.lifeos.core.model.ScheduleBlock
 import com.lifeos.core.model.Todo
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -24,6 +26,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class LineageTarget { WELLBEING, TODAY, STAY }
+
+data class LineageChipUi(
+    val key: String,
+    val label: String,
+    val target: LineageTarget,
+)
+
+data class LinkedRowUi(
+    val id: String,
+    val title: String,
+    val detail: String,
+)
+
 data class GoalCardUi(
     val id: String,
     val title: String,
@@ -36,6 +52,11 @@ data class GoalCardUi(
     val tasks: List<TaskRowUi>,
     val habits: List<HabitRowUi>,
     val canUndoExpansion: Boolean,
+    val dueOverdue: Boolean = false,
+    val lineage: List<LineageChipUi> = emptyList(),
+    val blocks: List<LinkedRowUi> = emptyList(),
+    val timeouts: List<LinkedRowUi> = emptyList(),
+    val alarms: List<LinkedRowUi> = emptyList(),
 )
 
 data class TaskRowUi(
@@ -45,6 +66,8 @@ data class TaskRowUi(
     val overdue: Boolean,
     val subtitle: String?,
     val dueIso: String? = null,
+    val estimateLabel: String? = null,
+    val sourceGoalLabel: String? = null,
 )
 
 data class HabitRowUi(
@@ -57,6 +80,8 @@ data class GoalsUiState(
     val goals: List<GoalCardUi>,
     val todos: List<TaskRowUi>,
     val empty: Boolean,
+    val xp: Int = 0,
+    val streakDays: Int = 0,
 )
 
 class GoalsViewModel(private val ports: Ports) : ViewModel() {
@@ -98,10 +123,13 @@ class GoalsViewModel(private val ports: Ports) : ViewModel() {
 
     private fun buildUi(state: CanonicalLifeState, expanded: Set<String>): GoalsUiState {
         val today = Time.todayIso()
+        val titlesById = state.goals.associate { it.id to it.title }
         val goals = state.goals.filter { !it.archived }.map { goal ->
             val nestedTasks = state.tasks.filter { it.goalId == goal.id || it.sourceGoalId == goal.id }
             val nestedHabits = state.habits.filter { it.sourceGoalId == goal.id }
             val caps = state.appTimeouts.filter { it.sourceGoalId == goal.id }
+            val blocks = state.scheduleBlocks.filter { it.sourceGoalId == goal.id }
+            val alarms = state.alarms.filter { it.sourceGoalId == goal.id }
             GoalCardUi(
                 id = goal.id,
                 title = goal.title,
@@ -111,9 +139,32 @@ class GoalsViewModel(private val ports: Ports) : ViewModel() {
                 capsLine = formatCapsLine(caps),
                 openCount = nestedTasks.count { !it.done },
                 expanded = goal.id in expanded,
-                tasks = nestedTasks.map { it.toRow(today) },
+                tasks = nestedTasks.map { it.toRow(today, titlesById) },
                 habits = nestedHabits.map { it.toRow() },
                 canUndoExpansion = hasExpansion(state, goal.id),
+                dueOverdue = isDeadlineOverdue(goal.deadlineIso),
+                lineage = lineageChips(state, goal.id, nestedTasks.size, nestedHabits.size, caps, blocks, alarms.size),
+                blocks = blocks.map { block ->
+                    LinkedRowUi(
+                        id = block.id,
+                        title = block.title,
+                        detail = "${block.startHhmm}–${block.endHhmm}",
+                    )
+                },
+                timeouts = caps.map { timeout ->
+                    LinkedRowUi(
+                        id = timeout.packageName,
+                        title = friendlyAppLabel(timeout.packageName),
+                        detail = "${timeout.limitMinutes}m daily cap",
+                    )
+                },
+                alarms = alarms.map { alarm ->
+                    LinkedRowUi(
+                        id = alarm.id,
+                        title = alarm.label.ifBlank { "Alarm" },
+                        detail = alarm.timeHhmm,
+                    )
+                },
             )
         }
         val todos = state.tasks
@@ -123,7 +174,7 @@ class GoalsViewModel(private val ports: Ports) : ViewModel() {
                     isOverdue(task.dueIso, today)
                 unattached || overdueFromGoal
             }
-            .map { it.toRow(today) }
+            .map { it.toRow(today, titlesById) }
             .sortedWith(
                 compareByDescending<TaskRowUi> { it.overdue }
                     .thenBy { it.dueIso ?: "\uFFFF" }
@@ -133,6 +184,8 @@ class GoalsViewModel(private val ports: Ports) : ViewModel() {
             goals = goals,
             todos = todos,
             empty = goals.isEmpty() && todos.isEmpty(),
+            xp = state.gamification.xp,
+            streakDays = state.gamification.streakDays,
         )
     }
 }
@@ -174,7 +227,24 @@ internal fun formatDue(deadlineIso: String?): String? {
     val date = Time.parseIsoOrNull(deadlineIso)?.toLocalDate()
         ?: runCatching { LocalDate.parse(deadlineIso.take(10)) }.getOrNull()
         ?: return "Due $deadlineIso"
-    return "Due ${date.format(dueDayFmt)}"
+    val days = Time.daysUntil(deadlineIso)
+        ?: java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
+    val absolute = date.format(dueDayFmt)
+    return when {
+        days < 0 -> {
+            val n = -days
+            "Overdue by $n ${if (n == 1) "day" else "days"}"
+        }
+        days == 0 -> "$absolute · due today"
+        days == 1 -> "$absolute · 1 day left"
+        else -> "$absolute · $days days left"
+    }
+}
+
+internal fun isDeadlineOverdue(deadlineIso: String?): Boolean {
+    if (deadlineIso.isNullOrBlank()) return false
+    val days = Time.daysUntil(deadlineIso) ?: return false
+    return days < 0
 }
 
 internal fun isOverdue(dueIso: String?, todayIso: String): Boolean {
@@ -188,6 +258,64 @@ internal fun isOverdue(dueIso: String?, todayIso: String): Boolean {
     }
 }
 
+private fun lineageChips(
+    state: CanonicalLifeState,
+    goalId: String,
+    taskCount: Int,
+    habitCount: Int,
+    timeouts: List<AppTimeout>,
+    blocks: List<ScheduleBlock>,
+    alarmCount: Int,
+): List<LineageChipUi> {
+    val chips = mutableListOf<LineageChipUi>()
+    timeouts.forEach { timeout ->
+        chips += LineageChipUi(
+            key = "cap-${timeout.packageName}",
+            label = "Caps: ${friendlyAppLabel(timeout.packageName)} ${timeout.limitMinutes}m",
+            target = LineageTarget.WELLBEING,
+        )
+    }
+    val focusCount = state.focus.windows.count { it.sourceGoalId == goalId }
+    if (focusCount > 0) {
+        chips += LineageChipUi(
+            key = "focus",
+            label = "$focusCount focus ${if (focusCount == 1) "window" else "windows"}",
+            target = LineageTarget.WELLBEING,
+        )
+    }
+    if (blocks.isNotEmpty()) {
+        val allStudy = blocks.all { it.kind == BlockKind.STUDY }
+        val noun = if (allStudy) "study block" else "block"
+        chips += LineageChipUi(
+            key = "blocks",
+            label = "${blocks.size} $noun${if (blocks.size == 1) "" else "s"}",
+            target = LineageTarget.TODAY,
+        )
+    }
+    if (alarmCount > 0) {
+        chips += LineageChipUi(
+            key = "alarms",
+            label = "$alarmCount alarm${if (alarmCount == 1) "" else "s"}",
+            target = LineageTarget.TODAY,
+        )
+    }
+    if (taskCount > 0) {
+        chips += LineageChipUi(
+            key = "tasks",
+            label = "$taskCount task${if (taskCount == 1) "" else "s"}",
+            target = LineageTarget.STAY,
+        )
+    }
+    if (habitCount > 0) {
+        chips += LineageChipUi(
+            key = "habits",
+            label = "$habitCount habit${if (habitCount == 1) "" else "s"}",
+            target = LineageTarget.STAY,
+        )
+    }
+    return chips
+}
+
 private fun hasExpansion(state: CanonicalLifeState, goalId: String): Boolean =
     state.tasks.any { it.sourceGoalId == goalId } ||
         state.habits.any { it.sourceGoalId == goalId } ||
@@ -197,7 +325,7 @@ private fun hasExpansion(state: CanonicalLifeState, goalId: String): Boolean =
         state.appTimeouts.any { it.sourceGoalId == goalId } ||
         state.focus.windows.any { it.sourceGoalId == goalId }
 
-private fun Todo.toRow(todayIso: String): TaskRowUi {
+private fun Todo.toRow(todayIso: String, titlesById: Map<String, String>): TaskRowUi {
     val overdue = !done && isOverdue(dueIso, todayIso)
     return TaskRowUi(
         id = id,
@@ -205,10 +333,12 @@ private fun Todo.toRow(todayIso: String): TaskRowUi {
         done = done,
         overdue = overdue,
         subtitle = when {
-            overdue -> "overdue"
+            overdue -> formatDue(dueIso) ?: "overdue"
             else -> formatDue(dueIso)
         },
         dueIso = dueIso,
+        estimateLabel = if (estMinutes > 0) "${estMinutes}m" else null,
+        sourceGoalLabel = sourceGoalId?.let { titlesById[it] },
     )
 }
 

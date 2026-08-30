@@ -4,6 +4,8 @@ import com.lifeos.core.DemoPackages
 import com.lifeos.core.Time
 import com.lifeos.core.model.Action
 import com.lifeos.core.model.BlockKind
+import com.lifeos.core.model.CandidateKind
+import com.lifeos.core.model.CandidateStatus
 import com.lifeos.core.model.CanonicalLifeState
 import com.lifeos.core.model.FocusMode
 import com.lifeos.core.model.FocusWindow
@@ -19,7 +21,7 @@ object OfflineFallbacks {
             googleScore(lower) to { googleInterview() },
             whitelistScore(lower) to { whitelistFocus() },
             deadlineScore(lower) to { deadlineDoomscroll() },
-            emailScore(lower) to { emailCheck() },
+            emailScore(lower) to { emailCheck(state) },
             0 to { generic(userText) },
         )
         val winner = scored.filter { it.first >= 0 }.maxBy { it.first }
@@ -39,7 +41,7 @@ object OfflineFallbacks {
         scoreAnyTwo(lower, listOf("assignment", "due", "tuesday", "instagram", "doomscroll", "wake"))
 
     private fun emailScore(lower: String): Int {
-        val n = listOf("email", "inbox", "mail", "exam").count { lower.contains(it) }
+        val n = listOf("email", "inbox", "mail", "exam", "codeforces", "leetcode", "contest").count { lower.contains(it) }
         return if (n > 0) n else -1
     }
 
@@ -187,11 +189,23 @@ object OfflineFallbacks {
         )
     }
 
-    private fun emailCheck(): ParsedTurn = ParsedTurn(
-        reply = "Check the Inbox tab. I'll flag exams and deadlines there.",
-        actions = emptyList(),
-        source = TurnSource.OFFLINE_FALLBACK,
-    )
+    private fun emailCheck(state: CanonicalLifeState): ParsedTurn {
+        val pending = state.emailCandidates
+            .filter { it.status == CandidateStatus.PENDING && it.kind != CandidateKind.NOISE }
+            .sortedByDescending { it.confidence }
+            .take(3)
+        val reply = if (pending.isEmpty()) {
+            "Nothing pending. Add Gmail, Codeforces, or LeetCode on the Inbox tab and I'll read it."
+        } else {
+            val names = pending.joinToString("; ") { it.subject.take(48) }
+            "I see ${pending.size}: $names. Say which to put on Today."
+        }
+        return ParsedTurn(
+            reply = reply,
+            actions = emptyList(),
+            source = TurnSource.OFFLINE_FALLBACK,
+        )
+    }
 
     private fun generic(userText: String): ParsedTurn {
         val trimmed = userText.trim()

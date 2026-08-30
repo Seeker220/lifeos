@@ -2,6 +2,7 @@ package com.lifeos.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.lifecycleScope
@@ -36,6 +37,11 @@ class MainActivity : ComponentActivity() {
         when (intent?.getStringExtra("demo")) {
             "seed" -> lifecycleScope.launch { DemoSeed.seed(ports) }
             "fill_chat" -> lifecycleScope.launch { DemoSeed.fillChat(ports) }
+            "usage" -> lifecycleScope.launch {
+                // Toast as well as log: some OEM ROMs drop debug logcat entirely.
+                val report = DemoSeed.usageReport(ports)
+                Toast.makeText(this@MainActivity, report, Toast.LENGTH_LONG).show()
+            }
         }
         intent?.removeExtra("demo")
     }

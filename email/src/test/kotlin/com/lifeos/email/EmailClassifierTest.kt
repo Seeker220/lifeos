@@ -96,6 +96,29 @@ class EmailClassifierTest {
     }
 
     @Test
+    fun codeforcesAndLeetcodeAreEvents() = runTest {
+        val cf = RawMessage(
+            id = "cf_1",
+            from = "Codeforces <noreply@codeforces.com>",
+            subject = "Codeforces Round 999 (Div. 2)",
+            body = "Contest starts 2026-09-01 19:00.",
+            receivedAtEpochMs = 1L,
+        )
+        val lc = RawMessage(
+            id = "lc_1",
+            from = "LeetCode <noreply@leetcode.com>",
+            subject = "Weekly Contest 400",
+            body = "Contest starts 2026-09-06 08:00.",
+            receivedAtEpochMs = 1L,
+        )
+        val out = classifier.classify(listOf(cf, lc))
+        assertEquals(CandidateKind.EVENT, out[0].kind)
+        assertEquals(CandidateKind.EVENT, out[1].kind)
+        assertTrue(out[0].confidence >= 0.35)
+        assertTrue(out[1].confidence >= 0.35)
+    }
+
+    @Test
     fun missingDateStaysNull() {
         assertNull(EmailClassifier.extractStartIso("hello there, no schedule"))
     }

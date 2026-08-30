@@ -2,10 +2,14 @@ package com.lifeos.domain
 
 import com.lifeos.core.Time
 import com.lifeos.core.model.AppTimeout
+import com.lifeos.core.model.CandidateKind
 import com.lifeos.core.model.CanonicalLifeState
+import com.lifeos.core.model.EmailCandidate
 import com.lifeos.core.model.Event
 import com.lifeos.core.model.Goal
 import com.lifeos.core.model.Hardness
+import com.lifeos.core.model.MailAccount
+import com.lifeos.core.model.MailKind
 import com.lifeos.core.model.ScheduleBlock
 import com.lifeos.core.model.Todo
 import org.junit.Assert.assertTrue
@@ -67,5 +71,34 @@ class ProjectionBuilderTest {
         }
         assertTrue(projection.json.contains("\"today\""))
         assertTrue(projection.json.contains("\"focus\""))
+    }
+
+    @Test
+    fun pendingEmailsAndMailSourcesAreVisibleToTheAgent() {
+        val state = CanonicalLifeState(
+            mailAccounts = listOf(
+                MailAccount(id = "m1", kind = MailKind.GMAIL, address = "a@gmail.com"),
+                MailAccount(id = "m2", kind = MailKind.CODEFORCES, address = "codeforces"),
+            ),
+            emailCandidates = listOf(
+                EmailCandidate(
+                    id = "em_cf",
+                    messageId = "cf_1",
+                    from = "Codeforces <noreply@codeforces.com>",
+                    subject = "Codeforces Round 999",
+                    snippet = "Starts tonight",
+                    confidence = 0.8,
+                    kind = CandidateKind.EVENT,
+                    proposedTitle = "Codeforces Round 999",
+                    proposedStartIso = "2026-08-30T19:00",
+                ),
+            ),
+        )
+        val json = ProjectionBuilder().build(state).json
+        assertTrue(json.contains("em_cf"))
+        assertTrue(json.contains("Codeforces Round 999"))
+        assertTrue(json.contains("gmail"))
+        assertTrue(json.contains("codeforces"))
+        assertTrue(json.contains("pendingEmails"))
     }
 }

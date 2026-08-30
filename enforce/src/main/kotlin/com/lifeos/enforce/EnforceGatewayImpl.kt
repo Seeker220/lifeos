@@ -26,4 +26,6 @@ class EnforceGatewayImpl(
         LifeOsLog.d("LifeOS/Focus", "usageTodayMinutes n=${packages.size}")
         return focus.usageTodayMinutes(packages)
     }
+
+    override fun usageTodayAll(): Map<String, Int> = focus.usageTodayAll()
 }

@@ -3,11 +3,14 @@ package com.lifeos.domain
 import com.lifeos.core.ProjectionPort
 import com.lifeos.core.Time
 import com.lifeos.core.model.AppTimeout
+import com.lifeos.core.model.CandidateKind
 import com.lifeos.core.model.CandidateStatus
 import com.lifeos.core.model.CanonicalLifeState
+import com.lifeos.core.model.EmailCandidate
 import com.lifeos.core.model.Event
 import com.lifeos.core.model.Goal
 import com.lifeos.core.model.LifeStateProjection
+import com.lifeos.core.model.MailKind
 import com.lifeos.core.model.ScheduleBlock
 import com.lifeos.core.model.Todo
 import kotlinx.serialization.json.JsonArray
@@ -17,12 +20,19 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.temporal.ChronoUnit
 
-class ProjectionBuilder : ProjectionPort {
+/**
+ * @param usageToday per-package foreground minutes for today. Without it the agent cannot
+ * answer screen-time questions or reason about how close a cap is to tripping.
+ */
+class ProjectionBuilder(
+    private val usageToday: () -> Map<String, Int> = { emptyMap() },
+) : ProjectionPort {
     private val risk = RiskCalculator()
 
     override fun build(state: CanonicalLifeState): LifeStateProjection {
         val today = Time.todayIso()
         val now = Time.nowIso()
+        val usage = runCatching(usageToday).getOrDefault(emptyMap())
         val goals = state.goals.filterNot { it.archived }
         val timeouts = state.appTimeouts
         var memory = state.memoryFacts.takeLast(12).reversed()
@@ -35,16 +45,25 @@ class ProjectionBuilder : ProjectionPort {
             .sortedWith(compareBy(nullsLast()) { Time.parseIsoOrNull(it.dueIso) })
             .take(15)
 
-        var json = emit(state, today, now, goals, timeouts, memory, blocks, events, tasks)
+        var topApps = usage.entries
+            .filterNot { isSystemNoise(it.key) }
+            .sortedByDescending { it.value }
+            .take(8)
+            .map { it.key to it.value }
+        var pendingEmails = pendingEmails(state)
+
+        var json = emit(state, today, now, goals, timeouts, memory, blocks, events, tasks, usage, topApps, pendingEmails)
         while (json.length > CAP) {
             when {
+                pendingEmails.size > 2 -> pendingEmails = pendingEmails.dropLast(1)
+                topApps.size > 3 -> topApps = topApps.dropLast(1)
                 memory.isNotEmpty() -> memory = memory.dropLast(1)
                 blocks.isNotEmpty() -> blocks = blocks.dropLast(1)
                 events.isNotEmpty() -> events = events.dropLast(1)
                 tasks.isNotEmpty() -> tasks = tasks.dropLast(1)
                 else -> break
             }
-            json = emit(state, today, now, goals, timeouts, memory, blocks, events, tasks)
+            json = emit(state, today, now, goals, timeouts, memory, blocks, events, tasks, usage, topApps, pendingEmails)
         }
         return LifeStateProjection(json)
     }
@@ -59,6 +78,9 @@ class ProjectionBuilder : ProjectionPort {
         blocks: List<ScheduleBlock>,
         events: List<Event>,
         tasks: List<Todo>,
+        usage: Map<String, Int>,
+        topApps: List<Pair<String, Int>>,
+        pendingEmails: List<EmailCandidate>,
     ): String = buildJsonObject {
         put("today", today)
         put("now", now)
@@ -134,9 +156,24 @@ class ProjectionBuilder : ProjectionPort {
                 add(buildJsonObject {
                     put("packageName", timeout.packageName)
                     put("limitMinutes", timeout.limitMinutes)
+                    val used = usage[timeout.packageName] ?: 0
+                    put("usedMinutesToday", used)
+                    put("remainingMinutes", (timeout.limitMinutes - used).coerceAtLeast(0))
                     timeout.sourceGoalId?.let { put("sourceGoalId", it) }
                 })
             }
+        })
+        put("screenTimeToday", buildJsonObject {
+            put("available", usage.isNotEmpty())
+            put("totalMinutes", usage.entries.filterNot { isSystemNoise(it.key) }.sumOf { it.value })
+            put("topApps", buildJsonArray {
+                topApps.forEach { (pkg, minutes) ->
+                    add(buildJsonObject {
+                        put("packageName", pkg)
+                        put("minutes", minutes)
+                    })
+                }
+            })
         })
         put("focus", buildJsonObject {
             put("active", state.focus.active)
@@ -150,10 +187,37 @@ class ProjectionBuilder : ProjectionPort {
             put("blockedDomains", JsonArray(state.network.domains.map { JsonPrimitive(it) }))
         })
         put("pendingEmailCount", state.emailCandidates.count { it.status == CandidateStatus.PENDING })
+        put("pendingEmails", buildJsonArray {
+            pendingEmails.forEach { mail ->
+                add(buildJsonObject {
+                    put("id", mail.id)
+                    put("from", mail.from.take(80))
+                    put("subject", mail.subject.take(120))
+                    put("snippet", mail.snippet.take(120))
+                    put("kind", mail.kind.name)
+                    mail.proposedStartIso?.let { put("proposedStartIso", it) }
+                    put("confidence", mail.confidence)
+                })
+            }
+        })
+        put("mailSources", JsonArray(
+            state.mailAccounts
+                .filter { it.kind != MailKind.SEED }
+                .map { JsonPrimitive(it.kind.name.lowercase()) },
+        ))
         put("memoryFacts", JsonArray(memory.map { JsonPrimitive(it) }))
         put("xp", state.gamification.xp)
         put("streakDays", state.gamification.streakDays)
     }.toString()
+
+    private fun pendingEmails(state: CanonicalLifeState): List<EmailCandidate> =
+        state.emailCandidates
+            .filter { it.status == CandidateStatus.PENDING }
+            .sortedWith(
+                compareByDescending<EmailCandidate> { it.kind != CandidateKind.NOISE }
+                    .thenByDescending { it.confidence },
+            )
+            .take(8)
 
     private fun inNext7Days(iso: String?, today: String): Boolean {
         val date = Time.parseIsoOrNull(iso)?.toLocalDate() ?: return false
@@ -162,7 +226,14 @@ class ProjectionBuilder : ProjectionPort {
         return days in 0..6
     }
 
+    private fun isSystemNoise(pkg: String): Boolean =
+        pkg == "android" || pkg == "com.lifeos.app" || SYSTEM_NOISE.any { pkg.contains(it) }
+
     companion object {
         private const val CAP = 4000
+        private val SYSTEM_NOISE = listOf(
+            "systemui", "launcher", "inputmethod", "permissioncontroller",
+            "packageinstaller", "com.android.settings", "providers",
+        )
     }
 }

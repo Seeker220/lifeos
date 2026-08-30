@@ -5,6 +5,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -14,6 +15,7 @@ import com.lifeos.enforce.EnforceHolder
 import com.lifeos.enforce.R
 import com.lifeos.enforce.notify.NotificationChannels
 import com.lifeos.enforce.usage.UsageStatsHelper
+import com.lifeos.enforce.vpn.BlockedDomainSignal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +37,7 @@ class FocusService : Service() {
     private var loopJob: Job? = null
     private var usageCached: Map<String, Int> = emptyMap()
     private var usageCachedAtMs: Long = 0L
+    private var browsersCache: Set<String>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -100,7 +103,9 @@ class FocusService : Service() {
         return NotificationCompat.Builder(this, NotificationChannels.FOCUS)
             .setContentTitle(getString(R.string.focus_watching_title))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_stat_lifeos)
+            .setColor(NotificationChannels.ACCENT)
+            .setColorized(false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(tap)
@@ -139,14 +144,14 @@ class FocusService : Service() {
             overlay.hide()
             return true
         }
-        if (overrideActiveFor(fg)) {
-            overlay.hide()
-            return true
-        }
-
-        val focusViolation = effective.active && violates(fg, effective)
+        // An override buys time out of a focus session only. Daily caps keep applying, or
+        // one tap during a focus block would quietly buy 10 minutes past every cap too.
+        val overridden = overrideActiveFor(fg)
+        val focusViolation = !overridden && effective.active && violates(fg, effective)
         val used = usedMinutes(fg, rules.timeouts.map { it.packageName })
         val timeoutHit = timeoutMonitor.exceeded(fg, used, rules)
+
+        val blockedDomain = blockedDomainToShow(fg, state.network.domains.isNotEmpty())
 
         when {
             focusViolation -> {
@@ -157,9 +162,36 @@ class FocusService : Service() {
                 val copy = FocusCopy.forTimeout(appLabel(fg), timeoutHit.limitMinutes, rules)
                 overlay.show(BlockReason.TIMEOUT, copy.title, copy.subtitle, copy.sourceLabel, fg)
             }
+            blockedDomain != null -> {
+                val copy = FocusCopy.forDomain(blockedDomain, rules)
+                overlay.show(BlockReason.DOMAIN, copy.title, copy.subtitle, copy.sourceLabel, fg)
+            }
             else -> overlay.hide()
         }
         return true
+    }
+
+    /**
+     * Only browsers get the domain block screen. Background apps also trigger blocked lookups,
+     * and covering the screen for those would be indistinguishable from a random overlay.
+     */
+    private fun blockedDomainToShow(fg: String, domainsActive: Boolean): String? {
+        if (!domainsActive || fg !in browserPackages()) return null
+        return BlockedDomainSignal.recent(DOMAIN_BLOCK_WINDOW_MS)
+    }
+
+    private fun browserPackages(): Set<String> {
+        browsersCache?.let { return it }
+        val probe = Intent(Intent.ACTION_VIEW, Uri.parse("http://example.com"))
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+        val resolved: Set<String> = runCatching {
+            packageManager
+                .queryIntentActivities(probe, PackageManager.ResolveInfoFlags.of(0))
+                .mapTo(mutableSetOf()) { it.activityInfo.packageName }
+        }.getOrDefault(mutableSetOf())
+        browsersCache = resolved
+        LifeOsLog.d("LifeOS/Focus", "browsers=$resolved")
+        return resolved
     }
 
     private fun overrideActiveFor(pkg: String): Boolean {
@@ -191,5 +223,6 @@ class FocusService : Service() {
         private const val TICK_MS = 800L
         private const val USAGE_CACHE_MS = 10_000L
         private const val OVERRIDE_GRACE_MS = 10 * 60_000L
+        private const val DOMAIN_BLOCK_WINDOW_MS = 6_000L
     }
 }

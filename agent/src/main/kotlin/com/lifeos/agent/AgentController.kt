@@ -26,6 +26,7 @@ class AgentController(
     private val projection: ProjectionPort,
     private val compactor: CompactorPort,
     private val llm: LlmClient?,
+    private val refreshInbox: suspend () -> Unit = {},
 ) : AgentPort {
     override suspend fun send(userText: String): AgentTurnResult {
         val started = Time.nowEpochMs()
@@ -51,6 +52,9 @@ class AgentController(
             ))
         }
 
+        if (looksLikeInboxQuery(userText)) {
+            runCatching { refreshInbox() }
+        }
         val state = lifeState.state.value
         val proj = projection.build(state)
         val persona = Personas.byId(state.personaId)
@@ -100,6 +104,11 @@ class AgentController(
         )
     }
 
+    private fun looksLikeInboxQuery(text: String): Boolean {
+        val lower = text.lowercase()
+        return INBOX_HINTS.any { lower.contains(it) }
+    }
+
     private fun resolveReply(parsedReply: String, chips: List<String>): String {
         if (parsedReply.isNotBlank()) return parsedReply
         if (chips.isNotEmpty()) return "Done: " + chips.take(3).joinToString()
@@ -108,5 +117,9 @@ class AgentController(
 
     companion object {
         private const val TAG = "LifeOS/Agent"
+        private val INBOX_HINTS = listOf(
+            "email", "inbox", "mail", "exam", "deadline",
+            "codeforces", "leetcode", "contest",
+        )
     }
 }

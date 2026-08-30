@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Layered L: offset depth plate -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillAlpha="0.38"
+        android:pathData="M36.2,26.8
+            C36.2,22.2 40,18.4 44.6,18.4
+            H47.4
+            C52,18.4 55.8,22.2 55.8,26.8
+            V63.2
+            H73.6
+            C78.2,63.2 82,67 82,71.6
+            V74.4
+            C82,79 78.2,82.8 73.6,82.8
+            H44.6
+            C40,82.8 36.2,79 36.2,74.4
+            Z" />
+    <!-- Primary L: thick rounded terminals, soft inner corner -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M33.5,24.2
+            C33.5,19.4 37.4,15.5 42.2,15.5
+            H45.2
+            C50,15.5 53.9,19.4 53.9,24.2
+            V61.1
+            H72.8
+            C77.6,61.1 81.5,65 81.5,69.8
+            V72.8
+            C81.5,77.6 77.6,81.5 72.8,81.5
+            H42.2
+            C37.4,81.5 33.5,77.6 33.5,72.8
+            Z" />
+    <!-- Four-point sparkle at the inner elbow -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54.2,49.2
+            C54.7,52.6 56.2,54.1 59.6,54.6
+            C56.2,55.1 54.7,56.6 54.2,60
+            C53.7,56.6 52.2,55.1 48.8,54.6
+            C52.2,54.1 53.7,52.6 54.2,49.2
+            Z" />
+</vector>

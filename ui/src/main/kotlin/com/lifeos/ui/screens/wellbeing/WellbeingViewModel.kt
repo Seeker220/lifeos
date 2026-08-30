@@ -13,4 +13,12 @@ class WellbeingViewModel(val ports: Ports) : ViewModel() {
             ports.executor.execute(listOf(action), ActionOrigin.USER)
         }
     }
+
+    fun reopenOnboarding() {
+        viewModelScope.launch {
+            ports.lifeState.mutate { state ->
+                state.copy(settings = state.settings.copy(onboardingComplete = false))
+            }
+        }
+    }
 }

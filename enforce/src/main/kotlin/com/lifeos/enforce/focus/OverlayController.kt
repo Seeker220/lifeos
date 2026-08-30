@@ -19,7 +19,7 @@ import android.window.OnBackInvokedDispatcher
 import com.lifeos.core.LifeOsLog
 import com.lifeos.enforce.R
 
-enum class BlockReason { FOCUS, TIMEOUT }
+enum class BlockReason { FOCUS, TIMEOUT, DOMAIN }
 
 class OverlayController(
     context: Context,
@@ -79,13 +79,13 @@ class OverlayController(
         blockedPackage = packageName
         val existing = view
         if (existing != null && existing.parent != null && shownReason == reason && shownTitle == title) {
-            bind(existing, title, subtitle, sourceLabel)
+            bind(existing, reason, title, subtitle, sourceLabel)
             showing = true
             return
         }
         val target = existing ?: inflate()
         view = target
-        bind(target, title, subtitle, sourceLabel)
+        bind(target, reason, title, subtitle, sourceLabel)
         if (target.parent == null) {
             val added = runCatching {
                 windowManager.addView(target, windowParams())
@@ -178,10 +178,22 @@ class OverlayController(
         return root
     }
 
-    private fun bind(root: View, title: String, subtitle: String, sourceLabel: String?) {
+    private fun bind(
+        root: View,
+        reason: BlockReason,
+        title: String,
+        subtitle: String,
+        sourceLabel: String?,
+    ) {
         root.visibility = View.VISIBLE
         root.findViewById<TextView>(R.id.overlay_title).text = title
         root.findViewById<TextView>(R.id.overlay_subtitle).text = subtitle
+        // A daily cap that can be waived is not a cap, so the escape hatch only exists for
+        // focus sessions the user started by hand.
+        root.findViewById<Button>(R.id.overlay_override).visibility = when (reason) {
+            BlockReason.TIMEOUT, BlockReason.DOMAIN -> View.GONE
+            BlockReason.FOCUS -> View.VISIBLE
+        }
         val source = root.findViewById<TextView>(R.id.overlay_source)
         if (sourceLabel.isNullOrBlank()) {
             source.visibility = View.GONE

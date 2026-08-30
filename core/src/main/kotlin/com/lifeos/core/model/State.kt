@@ -18,6 +18,8 @@ data class CanonicalLifeState(
     val network: NetworkRules = NetworkRules(),
     val mailAccounts: List<MailAccount> = emptyList(),
     val emailCandidates: List<EmailCandidate> = emptyList(),
+    val mailMessages: List<MailMessage> = emptyList(),
+    val sentMail: List<MailMessage> = emptyList(),
     val settings: Settings = Settings(),
     val gamification: Gamification = Gamification(),
 )

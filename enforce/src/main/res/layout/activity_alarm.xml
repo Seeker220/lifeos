@@ -31,7 +31,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:gravity="center"
-        android:textColor="#2EE6A6"
+        android:textColor="#A8C7FA"
         android:textSize="20sp" />
 
     <Button
@@ -43,7 +43,7 @@
         android:stateListAnimator="@null"
         android:text="@string/alarm_dismiss"
         android:textAllCaps="false"
-        android:textColor="#04140F"
+        android:textColor="#0A305F"
         android:textSize="18sp" />
 
     <Button

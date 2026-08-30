@@ -7,6 +7,9 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 
 object NotificationChannels {
+    /** AccentVivid — status-bar / heads-up tint. Frozen hex, not a theme token. */
+    val ACCENT: Int = 0xFF4C8DFF.toInt()
+
     /** S3 focus FGS. Id is frozen — do not rename. */
     const val FOCUS = "lifeos_focus"
     const val ALARM = "lifeos_alarm"
@@ -21,6 +24,7 @@ object NotificationChannels {
             NotificationChannel(FOCUS, "Focus", NotificationManager.IMPORTANCE_LOW).apply {
                 setSound(null, null)
                 enableVibration(false)
+                lightColor = ACCENT
             },
         )
         val alarmAttrs = AudioAttributes.Builder()
@@ -32,11 +36,13 @@ object NotificationChannels {
                 setBypassDnd(true)
                 setSound(android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI, alarmAttrs)
                 enableVibration(true)
+                lightColor = ACCENT
             },
         )
         nm.createNotificationChannel(
             NotificationChannel(VPN, "Network guard", NotificationManager.IMPORTANCE_LOW).apply {
                 setSound(null, null)
+                lightColor = ACCENT
             },
         )
     }

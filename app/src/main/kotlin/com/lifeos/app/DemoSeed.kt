@@ -2,6 +2,7 @@ package com.lifeos.app
 
 import com.lifeos.agent.OfflineFallbacks
 import com.lifeos.core.Ids
+import com.lifeos.core.LifeOsLog
 import com.lifeos.core.Ports
 import com.lifeos.core.Time
 import com.lifeos.core.model.ActionOrigin
@@ -27,6 +28,23 @@ object DemoSeed {
                 ),
             )
         }
+    }
+
+    /**
+     * Reports what UsageStatsManager actually returns, so a device that silently denies
+     * usage access can be told apart from one that simply has no screen time yet.
+     */
+    suspend fun usageReport(ports: Ports): String {
+        val apps = ports.apps.launchableApps().map { it.packageName }
+        val usage = ports.enforce.usageTodayMinutes(apps)
+        val top = usage.entries.filter { it.value > 0 }.sortedByDescending { it.value }.take(8)
+        val report = if (top.isEmpty()) {
+            "usage access returned NOTHING for ${apps.size} apps"
+        } else {
+            "usage today: " + top.joinToString { "${it.key.substringAfterLast('.')}=${it.value}m" }
+        }
+        LifeOsLog.d("LifeOS/Usage", report)
+        return report
     }
 
     suspend fun fillChat(ports: Ports) {

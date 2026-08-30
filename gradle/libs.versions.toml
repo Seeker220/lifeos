@@ -11,6 +11,9 @@ lifecycle = "2.8.7"
 navigationCompose = "2.8.4"
 okhttp = "4.12.0"
 junit = "4.13.2"
+angus-mail = "2.0.3"
+jakarta-mail = "2.1.3"
+security-crypto = "1.1.0-alpha06"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -39,3 +42,6 @@ compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+angus-mail = { group = "org.eclipse.angus", name = "angus-mail", version.ref = "angus-mail" }
+jakarta-mail-api = { group = "jakarta.mail", name = "jakarta.mail-api", version.ref = "jakarta-mail" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security-crypto" }

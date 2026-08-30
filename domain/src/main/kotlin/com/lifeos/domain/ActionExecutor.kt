@@ -2,6 +2,7 @@ package com.lifeos.domain
 
 import com.lifeos.core.ActionExecutorPort
 import com.lifeos.core.AppCatalog
+import com.lifeos.core.CalendarPort
 import com.lifeos.core.DemoPackages
 import com.lifeos.core.Domains
 import com.lifeos.core.EnforceGateway
@@ -15,6 +16,7 @@ import com.lifeos.core.model.ActionOrigin
 import com.lifeos.core.model.AlarmSpec
 import com.lifeos.core.model.AppTimeout
 import com.lifeos.core.model.AppliedChange
+import com.lifeos.core.model.CalendarMirrorItem
 import com.lifeos.core.model.CandidateStatus
 import com.lifeos.core.model.CanonicalLifeState
 import com.lifeos.core.model.ChangeKind
@@ -31,16 +33,20 @@ import com.lifeos.core.model.NetworkMode
 import com.lifeos.core.model.ScheduleBlock
 import com.lifeos.core.model.SkippedAction
 import com.lifeos.core.model.Todo
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class ActionExecutor(
     private val store: LifeStateStore,
     private val enforce: EnforceGateway,
     private val apps: AppCatalog,
+    private val calendar: CalendarPort? = null,
 ) : ActionExecutorPort {
 
     override suspend fun execute(actions: List<Action>, origin: ActionOrigin): ExecuteReport {
         var working = store.state.value
+        val before = working
         val applied = mutableListOf<AppliedChange>()
         val skipped = mutableListOf<SkippedAction>()
         val sideEffects = mutableListOf<() -> Unit>()
@@ -66,6 +72,8 @@ class ActionExecutor(
             enforce.applyRules(buildRules(store.state.value))
         }
 
+        mirrorCalendar(before, working)
+
         return ExecuteReport(applied, skipped)
     }
 
@@ -81,6 +89,98 @@ class ActionExecutor(
             "reapply focus=${state.focus.active} timeouts=${state.appTimeouts.size} " +
                 "windows=${state.focus.windows.size} domains=${state.network.domains.size}",
         )
+    }
+
+    private suspend fun mirrorCalendar(before: CanonicalLifeState, after: CanonicalLifeState) {
+        val port = calendar ?: return
+        if (!after.settings.calendarSyncEnabled) return
+        val upserts = mutableListOf<CalendarMirrorItem>()
+        val deletes = mutableListOf<String>()
+
+        val beforeEvents = before.events.associateBy { it.id }
+        val afterEvents = after.events.associateBy { it.id }
+        afterEvents.forEach { (id, event) ->
+            if (beforeEvents[id] != event) event.toMirrorItem()?.let { upserts += it }
+        }
+        beforeEvents.keys.minus(afterEvents.keys).forEach { deletes += it }
+
+        val beforeBlocks = before.scheduleBlocks.associateBy { it.id }
+        val afterBlocks = after.scheduleBlocks.associateBy { it.id }
+        afterBlocks.forEach { (id, block) ->
+            if (beforeBlocks[id] != block) block.toMirrorItem()?.let { upserts += it }
+        }
+        beforeBlocks.keys.minus(afterBlocks.keys).forEach { deletes += it }
+
+        if (upserts.isEmpty() && deletes.isEmpty()) return
+
+        runCatching {
+            if (upserts.isNotEmpty()) {
+                val targetId = port.ensureGoogleCalendar().getOrNull()
+                    ?: port.ensureLifeOsCalendar().getOrThrow()
+                port.upsert(upserts).getOrThrow()
+                if (after.settings.calendarId != targetId) {
+                    store.mutate { it.copy(settings = it.settings.copy(calendarId = targetId)) }
+                }
+            }
+            if (deletes.isNotEmpty()) port.delete(deletes).getOrThrow()
+        }.onFailure { t ->
+            LifeOsLog.d("LifeOS/Cal", "mirror failed: ${t.message ?: t::class.simpleName}")
+        }
+    }
+
+    private fun Event.toMirrorItem(): CalendarMirrorItem? {
+        val startMs = isoToEpochMs(startIso) ?: return null
+        val allDay = !startIso.trim().contains('T')
+        val explicitEnd = endIso
+        val endMs = when {
+            explicitEnd != null -> isoToEpochMs(explicitEnd)
+                ?: if (allDay) startMs + 86_400_000L else startMs + 3_600_000L
+            allDay -> startMs + 86_400_000L
+            else -> startMs + 3_600_000L
+        }
+        return CalendarMirrorItem(
+            lifeOsId = id,
+            title = title,
+            startEpochMs = startMs,
+            endEpochMs = if (endMs > startMs) endMs else startMs + if (allDay) 86_400_000L else 3_600_000L,
+            allDay = allDay,
+        )
+    }
+
+    private fun ScheduleBlock.toMirrorItem(): CalendarMirrorItem? {
+        val zone = ZoneId.systemDefault()
+        val startTime = Time.parseHhmm(startHhmm) ?: return null
+        val endTime = Time.parseHhmm(endHhmm) ?: return null
+        val dated = dateIso
+        val date = when {
+            !dated.isNullOrBlank() -> Time.parseIsoOrNull(dated)?.toLocalDate()
+            daysOfWeek.isNotEmpty() -> nextMatchingDate(daysOfWeek, zone)
+            else -> LocalDate.now(zone)
+        } ?: LocalDate.now(zone)
+        var start = date.atTime(startTime)
+        var end = date.atTime(endTime)
+        if (!end.isAfter(start)) end = end.plusDays(1)
+        return CalendarMirrorItem(
+            lifeOsId = id,
+            title = title,
+            startEpochMs = start.atZone(zone).toInstant().toEpochMilli(),
+            endEpochMs = end.atZone(zone).toInstant().toEpochMilli(),
+            notes = kind.name,
+        )
+    }
+
+    private fun isoToEpochMs(iso: String): Long? {
+        val parsed = Time.parseIsoOrNull(iso) ?: return null
+        return parsed.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+
+    private fun nextMatchingDate(days: List<Int>, zone: ZoneId): LocalDate {
+        val today = LocalDate.now(zone)
+        for (offset in 0..6L) {
+            val candidate = today.plusDays(offset)
+            if (candidate.dayOfWeek.value in days) return candidate
+        }
+        return today
     }
 
     private data class Step(
@@ -517,7 +617,9 @@ class ActionExecutor(
         } else {
             "DNS block: ${requested.size} domain${if (requested.size == 1) "" else "s"}"
         }
-        return ok(next, label, ChangeKind.NETWORK)
+        // The overlay watcher explains blocked lookups in the browser, so it has to be
+        // running (or torn down) alongside the domain list.
+        return ok(next, label, ChangeKind.NETWORK, needsApplyRules = true)
     }
 
     private fun promoteEmail(state: CanonicalLifeState, action: Action.PromoteEmail): Step {

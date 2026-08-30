@@ -1,7 +1,13 @@
 package com.lifeos.ui.shell
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,15 +26,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.lifeos.ui.components.pressable
 import com.lifeos.ui.nav.LifeOsDestination
 import com.lifeos.ui.theme.AccentWash
 import com.lifeos.ui.theme.BorderSubtle
+import com.lifeos.ui.theme.Motion
 import com.lifeos.ui.theme.Radius
 import com.lifeos.ui.theme.S
 import com.lifeos.ui.theme.Surface2
@@ -67,7 +76,7 @@ fun LifeOsNavBar(
                     dest = dest,
                     selected = selected,
                     onClick = { onDestinationSelected(dest) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(if (selected) 1.7f else 1f),
                 )
             }
         }
@@ -82,6 +91,12 @@ private fun NavBarItem(
     modifier: Modifier = Modifier,
 ) {
     val primary = MaterialTheme.colorScheme.primary
+    val pill by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = Motion.emphasized,
+        label = "navPill",
+    )
+    val sizeSpec = spring<IntSize>(dampingRatio = 0.80f, stiffness = 380f)
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -90,10 +105,8 @@ private fun NavBarItem(
             modifier = Modifier
                 .pressable(onClick)
                 .clip(RoundedCornerShape(Radius.full))
-                .background(if (selected) AccentWash else Color.Transparent)
-                .animateContentSize(
-                    animationSpec = spring(dampingRatio = 0.80f, stiffness = 380f),
-                )
+                .background(AccentWash.copy(alpha = AccentWash.alpha * pill))
+                .animateContentSize(animationSpec = sizeSpec)
                 .padding(horizontal = S.x3, vertical = S.x2),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(S.x1),
@@ -104,12 +117,18 @@ private fun NavBarItem(
                 tint = if (selected) primary else TextTertiary,
                 modifier = Modifier.size(22.dp),
             )
-            if (selected) {
+            AnimatedVisibility(
+                visible = selected,
+                enter = fadeIn(Motion.navFade) + expandHorizontally(animationSpec = sizeSpec),
+                exit = fadeOut(Motion.navFade) + shrinkHorizontally(animationSpec = sizeSpec),
+            ) {
                 Text(
                     text = dest.label,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = primary,
                     maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
                 )
             }
         }

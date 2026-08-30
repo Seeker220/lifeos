@@ -12,7 +12,12 @@ import com.lifeos.core.model.Hardness
 import java.time.LocalTime
 
 internal fun shouldRun(state: CanonicalLifeState, snapshot: EnforcementRules?): Boolean {
-    if (state.focus.active || state.appTimeouts.isNotEmpty() || state.focus.windows.isNotEmpty()) {
+    if (state.focus.active ||
+        state.appTimeouts.isNotEmpty() ||
+        state.focus.windows.isNotEmpty() ||
+        // Domain blocks need the overlay too, to explain the failed lookup in the browser.
+        state.network.domains.isNotEmpty()
+    ) {
         return true
     }
     val rules = snapshot ?: return false

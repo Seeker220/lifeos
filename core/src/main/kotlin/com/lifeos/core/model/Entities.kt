@@ -21,7 +21,7 @@ enum class NetworkMode { OFF, BLACKLIST, WHITELIST }
 enum class ChatRole { USER, ASSISTANT, SYSTEM }
 
 @Serializable
-enum class MailKind { SEED, IMAP, GMAIL }
+enum class MailKind { SEED, IMAP, GMAIL, CODEFORCES, LEETCODE }
 
 @Serializable
 enum class CandidateKind { EXAM, DEADLINE, EVENT, NOISE }
@@ -160,6 +160,12 @@ data class MailAccount(
     val address: String = "",
     val host: String = "",
     val port: Int = 993,
+    val username: String = "",
+    val useSsl: Boolean = true,
+    val smtpHost: String = "",
+    val smtpPort: Int = 587,
+    /** True when the stored secret is an OAuth refresh token rather than a password. */
+    val oauth: Boolean = false,
 )
 
 @Serializable
@@ -169,6 +175,29 @@ data class RawMessage(
     val subject: String,
     val body: String,
     val receivedAtEpochMs: Long,
+    val to: String = "",
+    val accountId: String = "",
+)
+
+/** A message kept for reading, distinct from the candidates the classifier proposes. */
+@Serializable
+data class MailMessage(
+    val id: String,
+    val accountId: String,
+    val from: String,
+    val to: String,
+    val subject: String,
+    val body: String,
+    val receivedAtEpochMs: Long,
+    val read: Boolean = false,
+)
+
+@Serializable
+data class OutgoingMail(
+    val to: String,
+    val subject: String,
+    val body: String,
+    val inReplyToId: String? = null,
 )
 
 @Serializable

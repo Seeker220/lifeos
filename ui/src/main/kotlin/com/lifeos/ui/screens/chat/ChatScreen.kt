@@ -1,6 +1,5 @@
 package com.lifeos.ui.screens.chat
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -46,7 +45,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -81,7 +80,7 @@ import com.lifeos.ui.components.LifeOsCard
 import com.lifeos.ui.components.ScrimEdge
 import com.lifeos.ui.components.pressable
 import com.lifeos.ui.nav.LifeOsDestination
-import com.lifeos.ui.shell.LocalScreenPadding
+import com.lifeos.ui.nav.LocalScreenPadding
 import com.lifeos.ui.theme.AccentVivid
 import com.lifeos.ui.theme.AgentGradient
 import com.lifeos.ui.theme.AgentGradientEdge
@@ -89,8 +88,6 @@ import com.lifeos.ui.theme.BorderSubtle
 import com.lifeos.ui.theme.Motion
 import com.lifeos.ui.theme.Radius
 import com.lifeos.ui.theme.S
-import com.lifeos.ui.theme.Success
-import com.lifeos.ui.theme.SuccessWash
 import com.lifeos.ui.theme.Surface1
 import com.lifeos.ui.theme.Surface2
 import com.lifeos.ui.theme.TextPrimary
@@ -148,6 +145,12 @@ fun ChatScreen(onNavigate: (LifeOsDestination) -> Unit) {
     val screenPadding = LocalScreenPadding.current
     val showHero = state.messages.isEmpty() && !state.sending
     val showBanner = state.pendingEmailCount > 0 && !bannerDismissed
+
+    LaunchedEffect(showBanner) {
+        if (!showBanner) return@LaunchedEffect
+        delay(6_000)
+        bannerDismissed = true
+    }
 
     LaunchedEffect(state.messages.size, state.sending) {
         val lastIndex = state.messages.size + if (state.sending) 0 else -1
@@ -540,7 +543,7 @@ private fun AssistantBubble(
                 GhostButton(
                     text = "Undo",
                     onClick = { onUndo(expansionGoalId) },
-                    icon = Icons.Outlined.Undo,
+                    icon = Icons.AutoMirrored.Outlined.Undo,
                 )
             }
         }
@@ -638,8 +641,8 @@ private fun PendingEmailBanner(
             .padding(horizontal = S.x4, vertical = S.x2)
             .pressable(onReview)
             .clip(shape)
-            .background(SuccessWash)
-            .border(1.dp, Success.copy(alpha = 0.35f), shape)
+            .background(Surface2)
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), shape)
             .padding(start = S.x3, end = S.x1, top = S.x2, bottom = S.x2),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(S.x2),
@@ -647,7 +650,7 @@ private fun PendingEmailBanner(
         Icon(
             imageVector = Icons.Outlined.Mail,
             contentDescription = null,
-            tint = Success,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),
         )
         Text(

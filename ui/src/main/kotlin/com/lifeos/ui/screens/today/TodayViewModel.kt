@@ -152,12 +152,16 @@ class TodayViewModel(private val ports: Ports) : ViewModel() {
             isToday = date == Time.todayIso(),
             focusActive = state.focus.active,
             groups = groups,
-            weekDays = weekDays(state, date),
+            weekDays = weekDays(state, date, external),
             empty = merged.isEmpty(),
         )
     }
 
-    private fun weekDays(state: CanonicalLifeState, selected: String): List<WeekDayUi> {
+    private fun weekDays(
+        state: CanonicalLifeState,
+        selected: String,
+        external: List<ExternalEvent>,
+    ): List<WeekDayUi> {
         val today = Time.todayIso()
         val selectedDate = parseDate(selected)
         val monday = selectedDate.with(DayOfWeek.MONDAY)
@@ -165,7 +169,7 @@ class TodayViewModel(private val ports: Ports) : ViewModel() {
             val day = monday.plusDays(offset)
             val iso = day.toString()
             val hasLife = ports.timeline.forDate(state, iso).isNotEmpty()
-            val hasCal = iso == selected && externalEvents.value.any { it.lifeOsId == null }
+            val hasCal = iso == selected && external.any { it.lifeOsId == null }
             WeekDayUi(
                 dateIso = iso,
                 weekdayInitial = day.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.ENGLISH),

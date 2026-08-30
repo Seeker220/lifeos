@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,7 +21,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,10 +45,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lifeos.ui.theme.AccentDeep
+import com.lifeos.ui.theme.AccentHigh
 import com.lifeos.ui.theme.AccentVivid
 import com.lifeos.ui.theme.Motion
 import com.lifeos.ui.theme.Radius
 import com.lifeos.ui.theme.S
+import com.lifeos.ui.theme.BorderSubtle
 import com.lifeos.ui.theme.ScrimBottom
 import com.lifeos.ui.theme.ScrimTop
 import com.lifeos.ui.theme.Surface3
@@ -172,6 +182,26 @@ fun PrimaryButton(
             Spacer(Modifier.width(S.x2))
         }
         Text(text = text, color = fg, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+fun IconGhostButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tint = MaterialTheme.colorScheme.primary
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .pressable(onClick)
+            .clip(CircleShape)
+            .border(1.dp, tint.copy(alpha = 0.40f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -328,6 +358,70 @@ fun ConfidenceMeter(confidence: Double) {
             style = TimeNumeric,
             color = TextSecondary,
         )
+    }
+}
+
+@Composable
+fun LifeOsSnackbarHost(
+    hostState: SnackbarHostState,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(Radius.md)
+    SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = S.x4, vertical = S.x3)
+                .fillMaxWidth(),
+            shape = shape,
+            color = AccentDeep,
+            contentColor = AccentHigh,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+        ) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(AccentVivid),
+                )
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = S.x3, end = S.x2, top = S.x2, bottom = S.x2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = data.visuals.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AccentHigh,
+                        modifier = Modifier.weight(1f),
+                    )
+                    data.visuals.actionLabel?.let { label ->
+                        TextButton(onClick = { data.performAction() }) {
+                            Text(
+                                text = label,
+                                color = scheme.primary,
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Dismiss",
+                        tint = AccentHigh,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .pressable { data.dismiss() }
+                            .padding(S.x2),
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -1,14 +1,18 @@
 package com.lifeos.domain
 
 import com.lifeos.core.AppCatalog
+import com.lifeos.core.CalendarPort
 import com.lifeos.core.ChatStore
 import com.lifeos.core.DemoPackages
 import com.lifeos.core.EnforceGateway
 import com.lifeos.core.LifeStateStore
 import com.lifeos.core.model.AlarmSpec
+import com.lifeos.core.model.CalendarMirrorItem
+import com.lifeos.core.model.CalendarPermissionStatus
 import com.lifeos.core.model.CanonicalLifeState
 import com.lifeos.core.model.ChatTranscript
 import com.lifeos.core.model.EnforcementRules
+import com.lifeos.core.model.ExternalEvent
 import com.lifeos.core.model.FocusSession
 import com.lifeos.core.model.InstalledApp
 import com.lifeos.core.model.NetworkRules
@@ -113,4 +117,36 @@ class RecordingEnforceGateway(
     }
 
     override fun usageTodayMinutes(packages: List<String>): Map<String, Int> = emptyMap()
+
+    override fun usageTodayAll(): Map<String, Int> = emptyMap()
+}
+
+class RecordingCalendarPort : CalendarPort {
+    val upserts = mutableListOf<CalendarMirrorItem>()
+    val deletes = mutableListOf<String>()
+    var ensureCalls = 0
+    var upsertCalls = 0
+    var deleteCalls = 0
+
+    override fun permissions() = CalendarPermissionStatus(read = true, write = true)
+
+    override suspend fun ensureLifeOsCalendar(): Result<Long> {
+        ensureCalls += 1
+        return Result.success(1L)
+    }
+
+    override suspend fun upsert(items: List<CalendarMirrorItem>): Result<Int> {
+        upsertCalls += 1
+        upserts += items
+        return Result.success(items.size)
+    }
+
+    override suspend fun delete(lifeOsIds: List<String>): Result<Int> {
+        deleteCalls += 1
+        deletes += lifeOsIds
+        return Result.success(lifeOsIds.size)
+    }
+
+    override suspend fun readRange(startMs: Long, endMs: Long): Result<List<ExternalEvent>> =
+        Result.success(emptyList())
 }

@@ -48,5 +48,7 @@ class SystemPromptBuilderTest {
         assertTrue(prompt.contains(projectionJson))
         assertTrue(prompt.contains("talked about gym"))
         assertTrue(prompt.contains(Personas.STRICT.voice))
+        assertTrue(prompt.contains("pendingEmails"))
+        assertTrue(prompt.contains("mailSources"))
     }
 }

@@ -16,6 +16,7 @@ import com.lifeos.core.model.LlmConfig
 import com.lifeos.core.model.LlmRequest
 import com.lifeos.core.model.MailAccount
 import com.lifeos.core.model.NetworkRules
+import com.lifeos.core.model.OutgoingMail
 import com.lifeos.core.model.PermissionStatus
 import com.lifeos.core.model.RawMessage
 import com.lifeos.core.model.TimelineItem
@@ -39,6 +40,13 @@ interface ChatStore {
 
 interface SecretsStore {
     fun llmConfig(): LlmConfig?
+    suspend fun putMailSecret(accountId: String, secret: String) {}
+    suspend fun getMailSecret(accountId: String): String? = null
+    suspend fun deleteMailSecret(accountId: String) {}
+}
+
+object EmptySecretsStore : SecretsStore {
+    override fun llmConfig(): LlmConfig? = null
 }
 
 interface ActionExecutorPort {
@@ -84,6 +92,9 @@ interface EnforceGateway {
     fun startNetworkGuard(rules: NetworkRules)
     fun stopNetworkGuard()
     fun usageTodayMinutes(packages: List<String>): Map<String, Int>
+
+    /** Every package with foreground time today, so callers can rank without a candidate list. */
+    fun usageTodayAll(): Map<String, Int>
 }
 
 interface SystemAccess {
@@ -97,6 +108,16 @@ interface AppCatalog {
 
 interface MailboxSync {
     suspend fun fetch(account: MailAccount?): Result<List<RawMessage>>
+}
+
+interface MailSender {
+    /** Sends via the account's transport. Fails with a user-facing message. */
+    suspend fun send(account: MailAccount, mail: OutgoingMail): Result<Unit>
+}
+
+object NoMailSender : MailSender {
+    override suspend fun send(account: MailAccount, mail: OutgoingMail): Result<Unit> =
+        Result.failure(IllegalStateException("Sending is not configured."))
 }
 
 interface EmailClassifierPort {
@@ -117,7 +138,12 @@ interface Ports {
     val apps: AppCatalog
     val mailbox: MailboxSync
     val classifier: EmailClassifierPort
+    val mailSender: MailSender get() = NoMailSender
 
     /** Null until :calendar is wired. UI must guard. */
     val calendar: CalendarPort? get() = null
+
+    val secrets: SecretsStore get() = EmptySecretsStore
+
+    val isDebug: Boolean get() = false
 }

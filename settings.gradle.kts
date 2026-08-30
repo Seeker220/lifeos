@@ -22,4 +22,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "LifeOS"
-include(":core", ":domain", ":agent", ":email", ":data", ":enforce", ":ui", ":app")
+include(":core", ":domain", ":agent", ":email", ":data", ":enforce", ":calendar", ":ui", ":app")

@@ -24,6 +24,7 @@ class DnsFilter(
     private val fd: ParcelFileDescriptor,
     blockedDomains: List<String>,
     private val upstream: String = UPSTREAM_DNS,
+    private val onBlocked: (String) -> Unit = BlockedDomainSignal::record,
 ) {
     private val blocked = blockedDomains.toList()
     private val input = FileInputStream(fd.fileDescriptor)
@@ -47,6 +48,7 @@ class DnsFilter(
                 val packet = buf.copyOf(read)
                 if (Domains.matches(query.qname, blocked)) {
                     LifeOsLog.d(TAG, "dns NXDOMAIN ${query.qname}")
+                    onBlocked(query.qname)
                     val payload = DnsPackets.nxDomainPayload(packet, query)
                     writeToTunnel(DnsPackets.buildResponse(query, payload))
                 } else {

@@ -100,6 +100,7 @@ class AlarmReceiver : BroadcastReceiver() {
     ) {
         val builder = NotificationCompat.Builder(context, NotificationChannels.ALARM)
             .setSmallIcon(R.drawable.alarm_ic_stat)
+            .setColor(NotificationChannels.ACCENT)
             .setContentTitle(label)
             .setContentText(persona.ifBlank { label })
             .setCategory(NotificationCompat.CATEGORY_ALARM)

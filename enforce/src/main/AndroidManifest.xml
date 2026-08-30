@@ -13,10 +13,14 @@
         <service
             android:name="com.lifeos.enforce.vpn.LifeOsVpnService"
             android:exported="false"
+            android:foregroundServiceType="specialUse"
             android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Enforces user-configured network and domain blocking" />
         </service>
 
         <receiver
