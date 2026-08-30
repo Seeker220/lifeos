@@ -1,0 +1,4 @@
+google / apple will not make such opinionated stuff like they obviously dont want people to be not distracted and watch youtube / instagram that would lead to their own loss so this is a good point
+
+Like I currently have many todos with different deadlines; I can just tell them in chat and it will auto set reminder and incorporate them in routine 
+also like I can have today bedtime reminders (eg. submit leetcode daily if not yet done, brush teeth), morning reminders (can be also set dynamically like can be set at night to remind in morning to go to LHC)
