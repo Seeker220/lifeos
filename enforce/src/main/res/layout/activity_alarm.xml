@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/alarm_bg"
+    android:gravity="center"
+    android:keepScreenOn="true"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:id="@+id/alarm_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-light"
+        android:textColor="#FFFFFF"
+        android:textSize="72sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/alarm_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="#B0BAC5"
+        android:textSize="22sp" />
+
+    <TextView
+        android:id="@+id/alarm_persona"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:textColor="#2EE6A6"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/alarm_dismiss"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginTop="48dp"
+        android:background="@drawable/alarm_button_dismiss"
+        android:stateListAnimator="@null"
+        android:text="@string/alarm_dismiss"
+        android:textAllCaps="false"
+        android:textColor="#04140F"
+        android:textSize="18sp" />
+
+    <Button
+        android:id="@+id/alarm_snooze"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/alarm_button_snooze"
+        android:stateListAnimator="@null"
+        android:text="@string/alarm_snooze"
+        android:textAllCaps="false"
+        android:textColor="#8A94A0"
+        android:textSize="14sp" />
+</LinearLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alarm_dismiss">Dismiss</string>
+    <string name="alarm_snooze">Snooze 5 min</string>
+    <string name="alarm_default_label">Alarm</string>
+</resources>

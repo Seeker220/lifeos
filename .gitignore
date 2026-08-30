@@ -1,0 +1,11 @@
+local.properties
+.gradle/
+build/
+*/build/
+.idea/
+*.apk
+.kotlin/
+captures/
+*.iml
+.DS_Store
+LifeOS-demo.apk
