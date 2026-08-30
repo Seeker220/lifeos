@@ -2,3 +2,5 @@ google / apple will not make such opinionated stuff like they obviously dont wan
 
 Like I currently have many todos with different deadlines; I can just tell them in chat and it will auto set reminder and incorporate them in routine 
 also like I can have today bedtime reminders (eg. submit leetcode daily if not yet done, brush teeth), morning reminders (can be also set dynamically like can be set at night to remind in morning to go to LHC)
+
+The name lifeos is long term coz it will be made to power autonomous robots in the future

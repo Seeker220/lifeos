@@ -1,0 +1,6 @@
+We are in a hackathon, we have to make mobile-first B2C product (i.e. app), and submission is in 4 hours. So, we need to cook something fast. I had a startup idea, which I provided in background/
+It is also fundamentally a mobile product.
+
+I think this is a good oppurtunity to make a prototype of it. So, we have to select which fundamental features we want to implement, in 3 hrs time.
+
+Since this would require several android system permissions; I want you to first check which perms we do need; and if there are some stuff which we won't be probably able to implement without explicit approval from playstore or there doesn't exist permissions for such.
