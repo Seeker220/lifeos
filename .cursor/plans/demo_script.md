@@ -43,7 +43,15 @@ $ADB shell "am start -n com.lifeos.app/.MainActivity --es say 'cap reddit at 15 
 
 2. **One sentence, twelve changes (20s)** — Tap suggestion **"Crack a Google interview in 1 month"**. Wait for chips. Tap **Goals**, then **Today**.
 
-3. **It is real device state (20s)** — **Focus** tab: Instagram/YouTube caps attributed to the goal. Tap **Start Focus**. Leave the app. Open YouTube. Overlay slams in. Tap **Back to work**.
+3. **It is real device state (20s)** — **Focus** tab: Instagram/YouTube caps attributed to the goal. Tap **Start Focus**. Leave the app. Open YouTube. Overlay slams in. **Press the back button — the block does not lift, it drops you on the home screen.** Then tap **Back to work**.
+
+3b. **It blocks the site, not just the app (15s)** — Say *"block all youtube domains at the dns level"*. LifeOS runs an on-device VPN that answers DNS itself: youtube.com and its CDNs (googlevideo.com, ytimg.com) stop resolving device-wide, including in Chrome, while everything else stays online. Prove it in a terminal:
+
+```bash
+$ADB shell "ping -c 1 youtube.com"   # unknown host
+$ADB shell "ping -c 1 example.com"   # resolves normally
+$ADB logcat -s LifeOS/Vpn            # dns NXDOMAIN youtube.com
+```
 
 4. **It wakes you up (15s)** — Pre-armed alarm fires. Full-screen (or high-priority notification if full-screen intent is denied). Persona line speaks if TTS is present.
 
@@ -56,5 +64,6 @@ $ADB shell "am start -n com.lifeos.app/.MainActivity --es say 'cap reddit at 15 
 - LLM stalls → a turn takes 3-11s; the chat shows a typing row. If the endpoint is down it falls back automatically, and the suggestion chips always match an offline expansion.
 - Overlay missing → re-run the two `appops` grants; usage access returns empty when denied.
 - Alarm silent → check the shade for the high-priority `lifeos_alarm` notification (API 37 often denies full-screen intent).
-- VPN cut / no consent → skip any network-guard mention; overlay still works.
+- VPN cut / no consent → skip any network-guard mention; overlay still works. DNS blocking needs the one-time VPN consent dialog, which cannot be granted over adb.
+- Domain block seems inactive → the app you are testing may use DNS-over-HTTPS, which bypasses system DNS. Chrome's "Secure DNS" setting must be off; the app-level block still applies.
 - A tab crashes → stay on Chat / Today / Focus and keep talking.

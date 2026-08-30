@@ -32,17 +32,21 @@ Grouped `LifeOsCard(level = 1)` sections with icon rows and `BorderSubtle` divid
 
 **Persona carousel.** A horizontally scrollable row of persona cards, each showing the name and a one-line tone preview so the choice is meaningful rather than a label. Selected card gets the `active` surface treatment. Persist via `executor.execute(listOf(Action.SetPersona(id)), ...)`.
 
-**"Compact chat" proof card — demo critical.** Today this is a plain button. Make it a card that, on tap, calls `compactor.ensureWindow()` and then animates the message count from before to after (`animateIntAsState`), with the resulting summary shown beneath. The point it must land: the transcript shrank, and the goals, timeouts, and alarms did not. Show a small `MintWash` row asserting "0 goals lost · 0 caps lost" computed from the canonical state before and after. This is the visual proof of the compaction-proof architecture.
+**"Compact chat" proof card — demo critical.** Today this is a plain button. Make it a card that, on tap, calls `compactor.ensureWindow()` and then animates the message count from before to after (`animateIntAsState`), with the resulting summary shown beneath. The point it must land: the transcript shrank, and the goals, timeouts, and alarms did not. Show a small `SuccessWash` row asserting "0 goals lost · 0 caps lost" computed from the canonical state before and after. This is the visual proof of the compaction-proof architecture.
 
 **Calendar sync (soft dependency on U7).** A toggle bound to `settings.calendarSyncEnabled`, the resolved calendar name, a "Sync now" action, and an "Open in Calendar" button firing a `CalendarContract` view intent. Resolve the port through a nullable lookup and hide the whole section when absent. Do not edit `core/`; do not block on U7.
+
+**Material You toggle — you own this.** A "Use wallpaper colours" switch that drives `LifeOsTheme(dynamicColor = ...)`. U0b added the parameter, defaulted to `false`; you supply the value. Persist it as a new defaulted field on `Settings` — except you may not edit `core/`, so instead keep it in the existing `MoreViewModel` backed by whatever store U0b's handoff names, and flag in your handoff if a `Settings` field is genuinely required so U7 (the only agent allowed in `core/`) can add it.
+
+Show a live preview: a row of accent swatches that updates as the switch flips, so the user sees what they are choosing. Note in the subtitle that only the accent changes and the dark surfaces stay put — that is the deliberate design, not a bug.
 
 **Settings + debug.** Surface `chatWindowK`, `autoScheduleHighConfidence`, and `demoStrictTimeouts` as proper switch rows with explanatory subtitles. Collapse debug actions into an expandable section.
 
 ## Onboarding
 
-Rebuild as a full-bleed 5-step pager. Each step: a large glyph inside a `MintWash` halo, title at `headlineMedium`, body at `bodyLarge` `TextSecondary`, one `PrimaryButton`, and progress dots at the bottom. Keep the existing five permission steps and the existing `OnboardingScreen(onDone)` signature that `LifeOsNav` calls.
+Rebuild as a full-bleed 5-step pager. Each step: a large glyph inside an `AccentWash` halo, title at `headlineMedium`, body at `bodyLarge` `TextSecondary`, one `PrimaryButton`, and progress dots at the bottom. Keep the existing five permission steps and the existing `OnboardingScreen(onDone)` signature that `LifeOsNav` calls.
 
-Two behaviours to preserve, because enforcement depends on them: re-verify grants on `ON_RESUME` (special-access grants happen in Settings, outside the app, so nothing else will tell you they landed), and animate `PermissionRow` from ungranted to granted when they do. The final step is "You're set" with a lightweight mint particle burst on `Canvas` — a few dozen animated points, not a physics engine.
+Two behaviours to preserve, because enforcement depends on them: re-verify grants on `ON_RESUME` (special-access grants happen in Settings, outside the app, so nothing else will tell you they landed), and animate `PermissionRow` from ungranted to granted when they do. The final step is "You're set" with a lightweight accent particle burst on `Canvas` — a few dozen animated points, not a physics engine.
 
 Add a skip affordance. A user who cannot get past onboarding cannot demo the app, so no step may be a hard gate.
 
@@ -53,7 +57,7 @@ Add a skip affordance. A user who cannot get past onboarding cannot demo the app
 - Root scrim `#E0` alpha over `#07090C` (`Backdrop`)
 - Card `#171C25` (`Surface2`), 20dp corners via a `<shape>` drawable, 1px `#1FFFFFFF` stroke
 - Title `#E8EEF5`, persona line `#97A3B2`
-- Full-width button filled `#2EE6A6` with `#04140F` text, 999dp corners
+- Full-width button filled `#A8C7FA` (`Accent`) with `#0A305F` (`AccentInk`) text, 999dp corners
 - Include the blocked app's name and the remaining cap, if the existing controller already passes them — check before adding parameters, and do not change the controller's Kotlin.
 
 ## Acceptance criteria

@@ -141,6 +141,9 @@ data class Settings(
     val autoScheduleHighConfidence: Boolean = false,
     val demoStrictTimeouts: Boolean = false,
     val onboardingComplete: Boolean = false,
+    val calendarSyncEnabled: Boolean = false,
+    val calendarId: Long? = null,
+    val dynamicColor: Boolean = false,
 )
 
 @Serializable

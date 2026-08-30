@@ -461,6 +461,19 @@ private fun NetworkSection(
         TextButton(onClick = { onDispatch(Action.NetworkSetApps(state.focus.packages)) }) {
             Text("Same as focus list")
         }
+        if (state.network.domains.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text("DNS blocked domains", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                state.network.domains.joinToString("  ·  "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = { onDispatch(Action.NetworkSetDomains(emptyList())) }) {
+                Text("Unblock all domains")
+            }
+        }
     }
 }
 

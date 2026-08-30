@@ -1,7 +1,13 @@
 package com.lifeos.ui.components
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,9 +15,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,74 +41,83 @@ import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lifeos.core.model.AppliedChange
 import com.lifeos.core.model.ChangeKind
 import com.lifeos.core.model.InstalledApp
-import com.lifeos.ui.theme.LifeOsRadius
-import com.lifeos.ui.theme.MdDanger
-import com.lifeos.ui.theme.MdPrimary
-import com.lifeos.ui.theme.MdWarn
+import com.lifeos.ui.theme.AccentVivid
+import com.lifeos.ui.theme.BorderSubtle
+import com.lifeos.ui.theme.Danger
+import com.lifeos.ui.theme.Radius
+import com.lifeos.ui.theme.Success
+import com.lifeos.ui.theme.S
+import com.lifeos.ui.theme.Surface2
+import com.lifeos.ui.theme.Surface3
+import com.lifeos.ui.theme.TextPrimary
+import com.lifeos.ui.theme.TextSecondary
+import com.lifeos.ui.theme.TextTertiary
+import com.lifeos.ui.theme.Violet
+import com.lifeos.ui.theme.Warn
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActionChipRow(chips: List<AppliedChange>, onChipClick: (AppliedChange) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(S.x2),
+        verticalArrangement = Arrangement.spacedBy(S.x2),
     ) {
         chips.forEach { chip ->
-            val label = chip.label.truncated(28)
-            AssistChip(
-                onClick = { onChipClick(chip) },
-                label = {
-                    Text(
-                        text = label,
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
-                        softWrap = false,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = chip.kind.chipIcon(),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    leadingIconContentColor = MaterialTheme.colorScheme.primary,
-                ),
-            )
+            val tint = chip.kind.chipTint(MaterialTheme.colorScheme.primary)
+            Row(
+                modifier = Modifier
+                    .pressable { onChipClick(chip) }
+                    .clip(RoundedCornerShape(Radius.full))
+                    .background(tint.copy(alpha = 0.14f))
+                    .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(Radius.full))
+                    .padding(horizontal = S.x3, vertical = S.x2),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(S.x2),
+            ) {
+                Icon(
+                    imageVector = chip.kind.chipIcon(),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = chip.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                    color = tint,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }
 
 @Composable
 fun RiskBadge(percent: Int) {
-    val (word, color) = when {
-        percent < 40 -> "On track" to MdPrimary
-        percent < 70 -> "At risk" to MdWarn
-        else -> "Critical" to MdDanger
-    }
+    val (word, color) = riskTone(percent)
     Text(
         text = "$percent% $word",
         color = color,
@@ -109,7 +126,7 @@ fun RiskBadge(percent: Int) {
         softWrap = false,
         overflow = TextOverflow.Clip,
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
+            .clip(RoundedCornerShape(Radius.full))
             .background(color.copy(alpha = 0.12f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     )
@@ -117,85 +134,90 @@ fun RiskBadge(percent: Int) {
 
 @Composable
 fun PermissionRow(title: String, subtitle: String, granted: Boolean, onGrant: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
+    val iconTint by animateColorAsState(
+        targetValue = if (granted) MaterialTheme.colorScheme.primary else TextTertiary,
+        label = "permIcon",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = S.x2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = if (granted) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
             contentDescription = if (granted) "Granted" else "Not granted",
-            tint = if (granted) scheme.primary else scheme.onSurfaceVariant,
+            tint = iconTint,
             modifier = Modifier.size(24.dp),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(S.x3))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurface)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurface.copy(alpha = 0.70f),
+                color = TextSecondary,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(S.x3))
         if (granted) {
             Text(
                 text = "Granted",
-                color = scheme.primary,
+                color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.labelLarge,
             )
         } else {
-            Button(onClick = onGrant) { Text("Grant") }
+            PrimaryButton(text = "Grant", onClick = onGrant)
         }
     }
 }
 
 @Composable
 fun TimeoutBar(label: String, usedMinutes: Int, limitMinutes: Int, sourceLabel: String?) {
-    val scheme = MaterialTheme.colorScheme
     val ratio = if (limitMinutes <= 0) 0f else usedMinutes.toFloat() / limitMinutes.toFloat()
     val progressColor = when {
-        ratio >= 1f -> MdDanger
-        ratio > 0.80f -> MdWarn
-        else -> scheme.primary
+        ratio >= 1f -> Danger
+        ratio > 0.80f -> Warn
+        else -> AccentVivid
     }
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = S.x2)) {
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(S.x3),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                color = scheme.onSurface,
-                modifier = Modifier.weight(1f, fill = false),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "$usedMinutes / $limitMinutes",
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant,
-            )
+            MonogramAvatar(text = label, color = progressColor, size = 36.dp)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "$usedMinutes / $limitMinutes min",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
+            if (sourceLabel != null) {
+                LineageChip(sourceLabel)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { ratio.coerceIn(0f, 1f) },
+        Spacer(Modifier.height(S.x2))
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(LifeOsRadius)),
-            color = progressColor,
-            trackColor = scheme.onSurface.copy(alpha = 0.12f),
-        )
-        if (sourceLabel != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "From: $sourceLabel",
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.primary,
+                .height(8.dp)
+                .clip(RoundedCornerShape(Radius.full))
+                .background(Surface3),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(ratio.coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .background(progressColor),
             )
         }
     }
@@ -208,24 +230,45 @@ fun EmptyState(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    val scheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(S.x6),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
-        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier.size(72.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .offset(x = 8.dp, y = 8.dp)
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(Surface3)
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(Radius.md)),
+            )
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .offset(x = (-6).dp, y = (-6).dp)
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(Surface2)
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(Radius.md)),
+            )
+        }
+        Spacer(Modifier.height(S.x4))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        Spacer(Modifier.height(S.x2))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = scheme.onSurface.copy(alpha = 0.70f),
+            color = TextSecondary,
         )
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(12.dp))
-            TextButton(onClick = onAction) { Text(actionLabel) }
+            Spacer(Modifier.height(S.x4))
+            PrimaryButton(text = actionLabel, onClick = onAction)
         }
     }
 }
@@ -234,56 +277,78 @@ fun EmptyState(
 fun SectionHeader(text: String) {
     Text(
         text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall.copy(
-            letterSpacing = 1.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 8.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = TextTertiary,
+        modifier = Modifier.padding(start = S.x4, end = S.x4, top = S.x5, bottom = S.x2),
     )
 }
 
 @Composable
 fun AppToggleRow(app: InstalledApp, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val monogram = app.label.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    val context = LocalContext.current
+    val icon = remember(app.packageName) {
+        runCatching { context.packageManager.getApplicationIcon(app.packageName).toImageBitmap() }
+            .getOrNull()
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = S.x4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(scheme.onSurfaceVariant.copy(alpha = 0.24f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = monogram,
-                style = MaterialTheme.typography.titleMedium,
-                color = scheme.onSurface,
+        if (icon != null) {
+            Image(
+                bitmap = icon,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape),
             )
+        } else {
+            MonogramAvatar(text = app.label, color = AccentVivid, size = 36.dp)
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(S.x4))
         Text(
             text = app.label,
             style = MaterialTheme.typography.bodyLarge,
-            color = scheme.onSurface,
-            modifier = Modifier.weight(1f),
+            color = TextPrimary,
+            modifier = Modifier
+                .weight(1f)
+                .pressable { onCheckedChange(!checked) },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = TextSecondary,
+                uncheckedTrackColor = Surface3,
+                uncheckedBorderColor = BorderSubtle,
+            ),
+        )
     }
 }
 
-private fun String.truncated(max: Int): String =
-    if (length <= max) this else take(max)
+internal fun riskTone(percent: Int): Pair<String, Color> = when {
+    percent < 40 -> "On track" to Success
+    percent < 70 -> "At risk" to Warn
+    else -> "Critical" to Danger
+}
 
-private fun ChangeKind.chipIcon(): ImageVector = when (this) {
+internal fun ChangeKind.chipTint(primary: Color): Color = when (this) {
+    ChangeKind.FOCUS, ChangeKind.TIMEOUT -> primary
+    ChangeKind.EMAIL -> Success
+    ChangeKind.MEMORY, ChangeKind.PERSONA -> Violet
+    ChangeKind.ALARM -> Warn
+    else -> primary
+}
+
+internal fun ChangeKind.chipIcon(): ImageVector = when (this) {
     ChangeKind.GOAL -> Icons.Outlined.Flag
     ChangeKind.TASK -> Icons.Outlined.CheckCircle
     ChangeKind.EVENT -> Icons.Outlined.Event
@@ -298,4 +363,15 @@ private fun ChangeKind.chipIcon(): ImageVector = when (this) {
     ChangeKind.XP -> Icons.Outlined.Star
     ChangeKind.EMAIL -> Icons.Outlined.Mail
     ChangeKind.REVERT -> Icons.Outlined.Undo
+}
+
+private fun Drawable.toImageBitmap(): ImageBitmap {
+    if (this is BitmapDrawable && bitmap != null) return bitmap.asImageBitmap()
+    val width = intrinsicWidth.coerceAtLeast(1)
+    val height = intrinsicHeight.coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    setBounds(0, 0, canvas.width, canvas.height)
+    draw(canvas)
+    return bitmap.asImageBitmap()
 }

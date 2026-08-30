@@ -166,6 +166,13 @@ sealed interface Action {
     data class NetworkSetApps(val packages: List<String>) : Action
 
     @Serializable
+    @SerialName("network_set_domains")
+    data class NetworkSetDomains(
+        val domains: List<String>,
+        val sourceGoalId: String? = null,
+    ) : Action
+
+    @Serializable
     @SerialName("promote_email")
     data class PromoteEmail(
         val candidateId: String,

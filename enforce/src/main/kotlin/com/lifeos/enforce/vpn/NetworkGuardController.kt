@@ -10,7 +10,7 @@ import com.lifeos.core.model.NetworkRules
 class NetworkGuardController(private val context: Context) {
     fun start(rules: NetworkRules) {
         runCatching {
-            if (rules.mode == NetworkMode.OFF) {
+            if (rules.mode == NetworkMode.OFF && rules.domains.isEmpty()) {
                 stop()
                 return
             }
@@ -24,9 +24,16 @@ class NetworkGuardController(private val context: Context) {
                     .putStringArrayListExtra(
                         LifeOsVpnService.EXTRA_PACKAGES,
                         ArrayList(rules.packages),
+                    )
+                    .putStringArrayListExtra(
+                        LifeOsVpnService.EXTRA_DOMAINS,
+                        ArrayList(rules.domains),
                     ),
             )
-            LifeOsLog.d("LifeOS/Vpn", "startNetworkGuard mode=${rules.mode} n=${rules.packages.size}")
+            LifeOsLog.d(
+                "LifeOS/Vpn",
+                "startNetworkGuard mode=${rules.mode} apps=${rules.packages.size} domains=${rules.domains.size}",
+            )
         }.onFailure {
             LifeOsLog.d("LifeOS/Vpn", "start failed: ${it.message}")
         }

@@ -25,7 +25,7 @@ Design reference: [`../lifeos_ui_redesign.md`](../lifeos_ui_redesign.md) §3.4.
 
 ## Build this
 
-**The goal card.** `LifeOsCard(level = 1, onClick = expand)`. Top row: title at `titleLarge` plus a hardness `Pill` (`HARD` → `DangerWash`, `SOFT` → `MintWash`). A `RiskRing` from U0 replaces the flat `RiskBadge` text — mint below 40%, warn below 70%, danger above, with the animated percentage inside the ring. Deadline rendered as relative-plus-absolute: "29 Sep · 30 days left", and past due as "Overdue by 2 days" in `Danger`.
+**The goal card.** `LifeOsCard(level = 1, onClick = expand)`. Top row: title at `titleLarge` plus a hardness `Pill` (`HARD` → `DangerWash`, `SOFT` → `AccentWash`). A `RiskRing` from U0 replaces the flat `RiskBadge` text — `Success` below 40%, `Warn` below 70%, `Danger` above, with the animated percentage inside the ring. Deadline rendered as relative-plus-absolute: "29 Sep · 30 days left", and past due as "Overdue by 2 days" in `Danger`.
 
 **Lineage chips — the important part.** A `FlowRow` under the deadline showing what this goal actually spawned, derived by scanning `CanonicalLifeState` for entities whose `sourceGoalId` matches:
 

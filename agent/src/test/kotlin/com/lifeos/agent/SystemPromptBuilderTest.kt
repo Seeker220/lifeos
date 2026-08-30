@@ -36,6 +36,7 @@ class SystemPromptBuilderTest {
             "set_focus_windows",
             "network_set_mode",
             "network_set_apps",
+            "network_set_domains",
             "promote_email",
             "dismiss_email",
             "revert_expansion",

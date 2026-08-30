@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lifeos.core.LifeOsLog
 import com.lifeos.core.LifeStateStore
 import com.lifeos.core.model.CanonicalLifeState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,22 +24,35 @@ class DataStoreLifeStateStore(
     private val mutex = Mutex()
     private val _state = MutableStateFlow(CanonicalLifeState())
     override val state: StateFlow<CanonicalLifeState> = _state.asStateFlow()
+    private val loaded = CompletableDeferred<Unit>()
 
     init {
         scope.launch {
-            runCatching {
-                val raw = context.lifeOsDataStore.data.first()[key]
-                if (!raw.isNullOrBlank()) {
-                    _state.value = LifeOsJson.instance.decodeFromString(CanonicalLifeState.serializer(), raw)
+            try {
+                runCatching {
+                    val raw = context.lifeOsDataStore.data.first()[key]
+                    if (!raw.isNullOrBlank()) {
+                        _state.value =
+                            LifeOsJson.instance.decodeFromString(CanonicalLifeState.serializer(), raw)
+                    }
+                }.onFailure {
+                    LifeOsLog.d("LifeOS/Data", "life state decode failed: ${it.message}")
+                    _state.value = CanonicalLifeState()
                 }
-            }.onFailure {
-                LifeOsLog.d("LifeOS/Data", "life state decode failed: ${it.message}")
-                _state.value = CanonicalLifeState()
+            } finally {
+                loaded.complete(Unit)
             }
         }
     }
 
+    override suspend fun awaitLoaded() {
+        loaded.await()
+    }
+
     override suspend fun mutate(block: (CanonicalLifeState) -> CanonicalLifeState) {
+        // Mutating before the first read would persist a copy of the empty default and
+        // wipe everything the user already had.
+        loaded.await()
         mutex.withLock {
             val next = block(_state.value)
             runCatching {

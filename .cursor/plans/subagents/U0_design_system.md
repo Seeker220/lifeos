@@ -10,6 +10,10 @@ timebox: "50 minutes"
 
 # U0 — Design system foundation
 
+> **STATUS: COMPLETE, verified on device.** Inter 4.001 bundled at four weights, all ~36 `ColorScheme` slots assigned, deprecated `Md*` aliases kept the untouched screens compiling, 13 new components published, and the Focus-tab crash fixed at source in `AppCatalogImpl`.
+>
+> **Two corrections came out of running it.** The radius object was specified as `object R`, which collides with Android's generated resource class — AGP filters `R.class` out of library packaging, so it compiled and then threw `NoClassDefFoundError` at launch. It is now `object Radius`. And the mint palette below has been **superseded by blue + Material You**; see [`U0b_retheme_blue.md`](U0b_retheme_blue.md). Token references in this file are left as historical record — read U0b for current values.
+
 > Seven agents start the moment you finish, and every one of them renders against the tokens and component signatures you publish here. Whatever you commit becomes immutable. Get the tokens exactly right, get every component visually correct-enough, and do not leave a single `ColorScheme` slot unassigned.
 
 Design reference: [`../lifeos_ui_redesign.md`](../lifeos_ui_redesign.md) §2.
@@ -82,7 +86,7 @@ Three things that are easy to get wrong and matter:
 ```kotlin
 fun Modifier.surface(
     level: Int = 1,
-    radius: Dp = R.lg,
+    radius: Dp = Radius.lg,
     active: Boolean = false,
 ): Modifier
 ```
@@ -103,7 +107,7 @@ The seven existing signatures are **frozen**; change bodies freely, and add new 
 @Composable fun AppToggleRow(app: InstalledApp, checked: Boolean, onCheckedChange: (Boolean) -> Unit)
 ```
 
-Redesign notes: `ActionChipRow` chips tint per `ChangeKind` (mint for `FOCUS`/`TIMEOUT`, `Info` for `EMAIL`, `Violet` for `MEMORY`/`PERSONA`, `Warn` for `ALARM`) — and drop the current hard `truncated(28)` character chop in favour of `maxLines = 1` with ellipsis, which respects actual available width. `RiskBadge` keeps the pill but gains a matching `RiskRing(percent, size)` sibling for U4. `TimeoutBar` gains an app monogram, a `R.full` track, and the source rendered as a lineage chip. `EmptyState` gains a layered-rounded-rectangle glyph so empty screens stop looking broken. `AppToggleRow` gets a real app icon via `PackageManager` with monogram fallback, and a mint-tinted `Switch`.
+Redesign notes: `ActionChipRow` chips tint per `ChangeKind` (mint for `FOCUS`/`TIMEOUT`, `Info` for `EMAIL`, `Violet` for `MEMORY`/`PERSONA`, `Warn` for `ALARM`) — and drop the current hard `truncated(28)` character chop in favour of `maxLines = 1` with ellipsis, which respects actual available width. `RiskBadge` keeps the pill but gains a matching `RiskRing(percent, size)` sibling for U4. `TimeoutBar` gains an app monogram, a `Radius.full` track, and the source rendered as a lineage chip. `EmptyState` gains a layered-rounded-rectangle glyph so empty screens stop looking broken. `AppToggleRow` gets a real app icon via `PackageManager` with monogram fallback, and a mint-tinted `Switch`.
 
 Also publish these **new** components, because multiple Wave U1 agents need them and duplicated implementations will drift:
 
@@ -112,12 +116,12 @@ Also publish these **new** components, because multiple Wave U1 agents need them
 @Composable fun Pill(text: String, color: Color, icon: ImageVector? = null)
 @Composable fun LineageChip(sourceLabel: String)
 @Composable fun RiskRing(percent: Int, size: Dp = 56.dp, strokeWidth: Dp = 5.dp)
-@Composable fun ProgressRing(progress: Float, size: Dp = 56.dp, strokeWidth: Dp = 5.dp, color: Color = Mint400, content: @Composable (() -> Unit)? = null)
+@Composable fun ProgressRing(progress: Float, size: Dp = 56.dp, strokeWidth: Dp = 5.dp, color: Color = AccentVivid, content: @Composable (() -> Unit)? = null)
 @Composable fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, icon: ImageVector? = null)
 @Composable fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null)
 @Composable fun SegmentedControl(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit)
 @Composable fun AnimatedCheckbox(checked: Boolean, onCheckedChange: (Boolean) -> Unit)
-@Composable fun MonogramAvatar(text: String, color: Color = Mint400, size: Dp = 36.dp)
+@Composable fun MonogramAvatar(text: String, color: Color = AccentVivid, size: Dp = 36.dp)
 @Composable fun ConfidenceMeter(confidence: Double)
 @Composable fun Modifier.pressable(onClick: () -> Unit): Modifier  // scale 0.97 + haptic
 @Composable fun ScrimEdge(top: Boolean)

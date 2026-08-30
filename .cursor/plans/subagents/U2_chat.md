@@ -36,15 +36,15 @@ Design reference: [`../lifeos_ui_redesign.md`](../lifeos_ui_redesign.md) §3.2.
 
 The hero cross-fades out once `transcript.messages` is non-empty. Keep the existing suggestion-chip row for the non-empty state.
 
-**Bubbles.** User: `Mint400` fill, `MintInk` text, `R.lg` with the bottom-right corner tightened to `R.xs`. Assistant: `Surface1`, hairline, a 1px `AgentGradient` top edge, bottom-left corner tightened. Cap width at 88% so long messages do not span edge to edge. New messages enter with fade + scale-from-0.94.
+**Bubbles.** User: `colorScheme.primary` fill, `colorScheme.onPrimary` text, `Radius.lg` with the bottom-right corner tightened to `Radius.xs`. Assistant: `Surface1`, hairline, a 1px `AgentGradient` top edge, bottom-left corner tightened. Cap width at 88% so long messages do not span edge to edge. New messages enter with fade + scale-from-0.94.
 
 **`AppliedChangesCard`** — this is the money shot, and today it is a hairline divider plus a grey "Applied 1 change" caption. Make it a nested `Surface2` block: an `AutoAwesome` icon plus "Applied 3 changes" header, then U0's `ActionChipRow`. Each chip navigates to the screen owning that change — `FOCUS`/`TIMEOUT` → `wellbeing`, `GOAL`/`TASK` → `goals`, `EVENT`/`BLOCK`/`ALARM`/`HABIT` → `today`, `EMAIL` → `inbox`, `MEMORY`/`PERSONA` → `more`. The existing `onNavigate: (LifeOsDestination) -> Unit` parameter is how you get there.
 
-**Composer.** `Surface3` pill at `R.xl`, growing to 5 lines before scrolling internally. Circular `Mint400` send button that scales and rotates on dispatch and disables while `sending`. Keep the existing IME behaviour — the current screen already requests soft input correctly.
+**Composer.** `Surface3` pill at `Radius.xl`, growing to 5 lines before scrolling internally. Circular `colorScheme.primary` send button that scales and rotates on dispatch and disables while `sending`. Keep the existing IME behaviour — the current screen already requests soft input correctly.
 
-**Typing indicator.** Three `Mint400` dots on staggered `Motion.emphasized` scale, inside an assistant-shaped bubble so it reads as the agent composing.
+**Typing indicator.** Three `AccentVivid` dots on staggered `Motion.emphasized` scale, inside an assistant-shaped bubble so it reads as the agent composing.
 
-**Pending-email banner.** `InfoWash` card that slides in from the top when `emailCandidates` has `PENDING` entries, with a count and a tap-through to `inbox`.
+**Pending-email banner.** `SuccessWash` card that slides in from the top when `emailCandidates` has `PENDING` entries, with a count and a tap-through to `inbox`.
 
 **Undo expansion.** Keep the existing behaviour, restyled as a `GhostButton` with an `Undo` icon, shown inline on messages carrying an `expansionGoalId`.
 

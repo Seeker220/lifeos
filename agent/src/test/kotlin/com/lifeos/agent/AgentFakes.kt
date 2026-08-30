@@ -39,6 +39,11 @@ class InMemoryLifeStateStore(
 
 class RecordingExecutor : ActionExecutorPort {
     val calls = mutableListOf<Pair<List<Action>, ActionOrigin>>()
+    var reapplyCount = 0
+    override suspend fun reapplyEnforcement() {
+        reapplyCount++
+    }
+
     override suspend fun execute(actions: List<Action>, origin: ActionOrigin): ExecuteReport {
         calls += actions to origin
         val applied = actions.map { action ->

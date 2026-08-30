@@ -3,15 +3,19 @@ package com.lifeos.enforce.focus
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import com.lifeos.core.LifeOsLog
 import com.lifeos.enforce.R
 
@@ -30,6 +34,7 @@ class OverlayController(
     private var shownReason: BlockReason? = null
     private var shownTitle: String? = null
     private var blockedPackage: String = ""
+    private var backCallback: OnBackInvokedCallback? = null
 
     @Volatile
     private var showing: Boolean = false
@@ -89,16 +94,50 @@ class OverlayController(
             }.isSuccess
             if (!added) {
                 showing = false
+                // Without an overlay there is nothing between the user and the app, so at
+                // least take them out of it.
+                goHome()
                 return
             }
         }
+        target.requestFocus()
+        registerBackGuard(target)
         shownReason = reason
         shownTitle = title
         showing = true
     }
 
+    /**
+     * Apps targeting SDK 34+ get predictive back, so BACK never reaches onKeyListener and
+     * the system would otherwise dismiss the overlay window for us.
+     */
+    private fun registerBackGuard(target: View) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || backCallback != null) return
+        val dispatcher = runCatching { target.findOnBackInvokedDispatcher() }.getOrNull() ?: return
+        val callback = OnBackInvokedCallback {
+            LifeOsLog.d("LifeOS/Focus", "overlay intercepted BACK")
+            goHome()
+        }
+        runCatching {
+            dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback)
+            backCallback = callback
+        }.onFailure {
+            LifeOsLog.d("LifeOS/Focus", "back guard register failed: ${it.message}")
+        }
+    }
+
+    private fun unregisterBackGuard(target: View?) {
+        val callback = backCallback ?: return
+        backCallback = null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        runCatching {
+            target?.findOnBackInvokedDispatcher()?.unregisterOnBackInvokedCallback(callback)
+        }
+    }
+
     private fun hideOnMain() {
         val current = view
+        unregisterBackGuard(current)
         if (current != null) {
             runCatching {
                 if (current.parent != null) windowManager.removeView(current)
@@ -115,6 +154,18 @@ class OverlayController(
 
     private fun inflate(): View {
         val root = LayoutInflater.from(inflaterContext).inflate(R.layout.overlay_block, null)
+        // The overlay window is focusable, so BACK is delivered here. Swallowing it is what
+        // stops the block from being dismissed while the blocked app is still in front.
+        root.isFocusableInTouchMode = true
+        root.setOnKeyListener { _, keyCode, _ ->
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                LifeOsLog.d("LifeOS/Focus", "overlay swallowed BACK")
+                goHome()
+                true
+            } else {
+                false
+            }
+        }
         root.findViewById<Button>(R.id.overlay_back).setOnClickListener {
             hideOnMain()
             goHome()
@@ -128,6 +179,7 @@ class OverlayController(
     }
 
     private fun bind(root: View, title: String, subtitle: String, sourceLabel: String?) {
+        root.visibility = View.VISIBLE
         root.findViewById<TextView>(R.id.overlay_title).text = title
         root.findViewById<TextView>(R.id.overlay_subtitle).text = subtitle
         val source = root.findViewById<TextView>(R.id.overlay_source)

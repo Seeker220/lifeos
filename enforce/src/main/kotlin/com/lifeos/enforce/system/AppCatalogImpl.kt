@@ -22,7 +22,7 @@ class AppCatalogImpl(private val context: Context) : AppCatalog {
                         label = info.loadLabel(pm).toString(),
                     )
                 }
-                .filter { it.packageName != DemoPackages.SELF }
+                .filter { it.packageName != context.packageName && it.packageName != DemoPackages.SELF }
                 .distinctBy { it.packageName }
                 .sortedBy { it.label.lowercase() }
         }.getOrDefault(emptyList())

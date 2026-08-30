@@ -17,25 +17,26 @@ class LifeOsVpnService : VpnService() {
     private val gate = Any()
     private var tunFd: ParcelFileDescriptor? = null
     private var blackhole: Thread? = null
+    private var dnsFilter: DnsFilter? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         NotificationChannels.ensureAll(this)
         if (intent == null) {
             val mode = lastMode
             val packages = lastPackages
-            if (mode == null || mode == NetworkMode.OFF) {
+            val domains = lastDomains
+            if ((mode == null || mode == NetworkMode.OFF) && domains.isEmpty()) {
                 LifeOsLog.d("LifeOS/Vpn", "restarted without rules; stop")
                 stopSelf()
                 return START_NOT_STICKY
             }
-            return applyRules(mode, packages)
+            return applyRules(mode ?: NetworkMode.OFF, packages, domains)
         }
         if (intent.getStringExtra(EXTRA_ACTION) == ACTION_STOP || intent.action == ACTION_STOP) {
             LifeOsLog.d("LifeOS/Vpn", "ACTION_STOP")
             teardown()
             cancelStatus()
-            lastMode = null
-            lastPackages = emptyList()
+            forgetRules()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -43,16 +44,22 @@ class LifeOsVpnService : VpnService() {
             NetworkMode.valueOf(intent.getStringExtra(EXTRA_MODE).orEmpty())
         }.getOrDefault(NetworkMode.OFF)
         val packages = intent.getStringArrayListExtra(EXTRA_PACKAGES).orEmpty()
-        return applyRules(mode, packages)
+        val domains = intent.getStringArrayListExtra(EXTRA_DOMAINS).orEmpty()
+        return applyRules(mode, packages, domains)
     }
 
     override fun onRevoke() {
         LifeOsLog.d("LifeOS/Vpn", "onRevoke")
         teardown()
         cancelStatus()
+        forgetRules()
+        stopSelf()
+    }
+
+    private fun forgetRules() {
         lastMode = null
         lastPackages = emptyList()
-        stopSelf()
+        lastDomains = emptyList()
     }
 
     override fun onDestroy() {
@@ -61,29 +68,66 @@ class LifeOsVpnService : VpnService() {
         super.onDestroy()
     }
 
-    private fun applyRules(mode: NetworkMode, packages: List<String>): Int {
-        if (mode == NetworkMode.OFF) {
+    private fun applyRules(mode: NetworkMode, packages: List<String>, domains: List<String>): Int {
+        if (mode == NetworkMode.OFF && domains.isEmpty()) {
             teardown()
             cancelStatus()
-            lastMode = null
-            lastPackages = emptyList()
+            forgetRules()
             stopSelf()
             return START_NOT_STICKY
         }
         lastMode = mode
         lastPackages = packages
+        lastDomains = domains
         teardown()
-        val ok = synchronized(gate) { establish(mode, packages) }
+        // Domain blocking needs real DNS answers, which is incompatible with a blackhole
+        // tunnel, so it takes precedence when both are configured.
+        val ok = synchronized(gate) {
+            if (domains.isNotEmpty()) {
+                if (mode != NetworkMode.OFF) {
+                    LifeOsLog.d("LifeOS/Vpn", "domains set; DNS filter supersedes app $mode")
+                }
+                establishDnsFilter(domains)
+            } else {
+                establishBlackhole(mode, packages)
+            }
+        }
         if (!ok) {
-            LifeOsLog.d("LifeOS/Vpn", "establish failed mode=$mode")
+            LifeOsLog.d("LifeOS/Vpn", "establish failed mode=$mode domains=${domains.size}")
             stopSelf()
             return START_NOT_STICKY
         }
-        postStatus(mode)
+        postStatus(mode, domains)
         return START_STICKY
     }
 
-    private fun establish(mode: NetworkMode, packages: List<String>): Boolean {
+    private fun establishDnsFilter(domains: List<String>): Boolean {
+        val builder = Builder()
+            .setSession("LifeOS DNS guard")
+            .addAddress("10.7.0.1", 32)
+            .addDnsServer(DNS_SINK)
+            // Route only the sink resolver: DNS is intercepted, all other traffic is
+            // untouched, so the device stays online while blocked names fail to resolve.
+            .addRoute(DNS_SINK, 32)
+            .setBlocking(true)
+            .setMtu(1500)
+        // LifeOS itself must never depend on its own filter.
+        runCatching { builder.addDisallowedApplication(packageName) }
+
+        val fd = runCatching { builder.establish() }.getOrNull()
+        if (fd == null) {
+            LifeOsLog.d("LifeOS/Vpn", "establish() returned null (consent revoked)")
+            return false
+        }
+        tunFd = fd
+        val filter = DnsFilter(this, fd, domains)
+        dnsFilter = filter
+        blackhole = thread(isDaemon = true, name = "lifeos-dns-filter") { filter.run() }
+        LifeOsLog.d("LifeOS/Vpn", "dns tunnel up domains=$domains")
+        return true
+    }
+
+    private fun establishBlackhole(mode: NetworkMode, packages: List<String>): Boolean {
         val builder = Builder()
             .setSession("LifeOS Focus")
             .addAddress("10.7.0.1", 32)
@@ -163,6 +207,8 @@ class LifeOsVpnService : VpnService() {
 
     private fun teardown() {
         synchronized(gate) {
+            dnsFilter?.stop()
+            dnsFilter = null
             runCatching { tunFd?.close() }
             tunFd = null
             blackhole?.interrupt()
@@ -171,12 +217,18 @@ class LifeOsVpnService : VpnService() {
         LifeOsLog.d("LifeOS/Vpn", "teardown")
     }
 
-    private fun postStatus(mode: NetworkMode) {
+    private fun postStatus(mode: NetworkMode, domains: List<String>) {
         runCatching {
             val n = Notification.Builder(this, NotificationChannels.VPN)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
                 .setContentTitle("LifeOS network guard")
-                .setContentText("Mode ${mode.name.lowercase()}")
+                .setContentText(
+                    if (domains.isNotEmpty()) {
+                        "Blocking ${domains.size} domain${if (domains.size == 1) "" else "s"}"
+                    } else {
+                        "Mode ${mode.name.lowercase()}"
+                    },
+                )
                 .setOngoing(true)
                 .build()
             getSystemService(NotificationManager::class.java)
@@ -191,13 +243,20 @@ class LifeOsVpnService : VpnService() {
     companion object {
         const val EXTRA_MODE = "mode"
         const val EXTRA_PACKAGES = "packages"
+        const val EXTRA_DOMAINS = "domains"
         const val EXTRA_ACTION = "action"
         const val ACTION_STOP = "stop"
+
+        /** Sink resolver address inside the tunnel; the only route we install in DNS mode. */
+        private const val DNS_SINK = "10.7.0.2"
 
         @Volatile
         var lastMode: NetworkMode? = null
 
         @Volatile
         var lastPackages: List<String> = emptyList()
+
+        @Volatile
+        var lastDomains: List<String> = emptyList()
     }
 }

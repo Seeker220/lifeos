@@ -147,6 +147,7 @@ class ProjectionBuilder : ProjectionPort {
         put("network", buildJsonObject {
             put("mode", state.network.mode.name)
             put("packages", JsonArray(state.network.packages.map { JsonPrimitive(it) }))
+            put("blockedDomains", JsonArray(state.network.domains.map { JsonPrimitive(it) }))
         })
         put("pendingEmailCount", state.emailCandidates.count { it.status == CandidateStatus.PENDING })
         put("memoryFacts", JsonArray(memory.map { JsonPrimitive(it) }))

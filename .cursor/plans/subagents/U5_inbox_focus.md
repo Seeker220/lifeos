@@ -37,23 +37,23 @@ U0 fixed the root cause of the Focus crash in `AppCatalogImpl` (`queryIntentActi
 
 *Active:* a large countdown `ProgressRing` driven by `focus.startedAtEpochMs` and `endsAtEpochMs`, remaining time at `displayMedium` in `TimeNumeric`, `MonogramAvatar`s for the blocked or allowed apps, and a full-width End button. Tick every second with a `LaunchedEffect` + `delay`, not per-frame recomposition.
 
-**Timeout caps.** U0's redesigned `TimeoutBar` already handles the monogram, the `R.full` mint→warn→danger track, and the source lineage chip. Your job is the section around it: a header with the cap count, live usage from `enforce.usageTodayMinutes(packages)`, and an add-cap affordance opening the app picker. Refresh usage on `ON_RESUME` rather than polling.
+**Timeout caps.** U0's redesigned `TimeoutBar` already handles the monogram, the `Radius.full` `Success`→`Warn`→`Danger` track, and the source lineage chip. Your job is the section around it: a header with the cap count, live usage from `enforce.usageTodayMinutes(packages)`, and an add-cap affordance opening the app picker. Refresh usage on `ON_RESUME` rather than polling.
 
 **Network guard.** A `SegmentedControl` for OFF / BLACKLIST / WHITELIST with a shield icon that animates between states, the affected package list below, and an honest one-line explanation of what the VPN actually does. Route changes through `executor.execute`, never by calling `enforce` directly — the executor is what persists state.
 
-**App picker.** Promote the current inline list to a real `ModalBottomSheet` at `R.xl`: search field, sticky selected count in the header, `AppToggleRow` items, and a confirm button. Dedupe the list.
+**App picker.** Promote the current inline list to a real `ModalBottomSheet` at `Radius.xl`: search field, sticky selected count in the header, `AppToggleRow` items, and a confirm button. Dedupe the list.
 
 **Permission health.** If `system.permissions().enforcementReady` is false, raise a `WarnWash` card at the top naming the missing grants with a jump to onboarding. Without these grants focus and timeouts silently do nothing, so this must be impossible to miss.
 
 ## Inbox
 
-**Candidate cards.** `LifeOsCard(level = 1)` with an `Info` left accent: `MonogramAvatar` from the sender, subject at `titleMedium` bold, a two-line snippet at `bodyMedium` `TextSecondary`, U0's `ConfidenceMeter`, and a kind `Pill` colored per `CandidateKind` — `EXAM` danger, `DEADLINE` warn, `EVENT` info, `NOISE` tertiary.
+**Candidate cards.** `LifeOsCard(level = 1)` with a `Success` left accent stripe: `MonogramAvatar` from the sender, subject at `titleMedium` bold, a two-line snippet at `bodyMedium` `TextSecondary`, U0's `ConfidenceMeter`, and a kind `Pill` colored per `CandidateKind` — `EXAM` danger, `DEADLINE` warn, `EVENT` info, `NOISE` tertiary.
 
 **Actions.** A filled `PrimaryButton("Add to calendar")` and a `GhostButton("Dismiss")`, replacing the current bare `TextButton`s. Once U7 lands, that first button genuinely writes to the device calendar — until then it promotes to a LifeOS event exactly as it does today. Guard the calendar call behind a null check; do not block on U7.
 
 **Sections.** Keep the existing pending / noise / handled split with counts in the headers, collapsible with animation. Existing `key = { it.id }` on those lists is already correct — leave it.
 
-**Empty state.** U0's `EmptyState` with a filled mint "Load sample" action, replacing today's bare `TextButton`.
+**Empty state.** U0's `EmptyState` with a filled accent "Load sample" action, replacing today's bare `TextButton`.
 
 ## Contracts you consume
 

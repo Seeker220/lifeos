@@ -166,6 +166,10 @@ object ActionParser {
         )
         "network_set_mode" -> Action.NetworkSetMode(mode = obj.enum("mode", NetworkMode.OFF))
         "network_set_apps" -> Action.NetworkSetApps(packages = obj.strList("packages"))
+        "network_set_domains" -> Action.NetworkSetDomains(
+            domains = obj.strList("domains"),
+            sourceGoalId = obj.strOrNull("sourceGoalId"),
+        )
         "promote_email" -> Action.PromoteEmail(
             candidateId = obj.str("candidateId"),
             titleOverride = obj.strOrNull("titleOverride"),

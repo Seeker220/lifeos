@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.lifeos.core.ChatStore
 import com.lifeos.core.LifeOsLog
 import com.lifeos.core.model.ChatTranscript
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,22 +24,34 @@ class DataStoreChatStore(
     private val mutex = Mutex()
     private val _transcript = MutableStateFlow(ChatTranscript())
     override val transcript: StateFlow<ChatTranscript> = _transcript.asStateFlow()
+    private val loaded = CompletableDeferred<Unit>()
 
     init {
         scope.launch {
-            runCatching {
-                val raw = context.lifeOsDataStore.data.first()[key]
-                if (!raw.isNullOrBlank()) {
-                    _transcript.value = LifeOsJson.instance.decodeFromString(ChatTranscript.serializer(), raw)
+            try {
+                runCatching {
+                    val raw = context.lifeOsDataStore.data.first()[key]
+                    if (!raw.isNullOrBlank()) {
+                        _transcript.value =
+                            LifeOsJson.instance.decodeFromString(ChatTranscript.serializer(), raw)
+                    }
+                }.onFailure {
+                    LifeOsLog.d("LifeOS/Data", "chat decode failed: ${it.message}")
+                    _transcript.value = ChatTranscript()
                 }
-            }.onFailure {
-                LifeOsLog.d("LifeOS/Data", "chat decode failed: ${it.message}")
-                _transcript.value = ChatTranscript()
+            } finally {
+                loaded.complete(Unit)
             }
         }
     }
 
+    override suspend fun awaitLoaded() {
+        loaded.await()
+    }
+
     override suspend fun mutate(block: (ChatTranscript) -> ChatTranscript) {
+        // Writing before the first read would replace the saved transcript with an empty one.
+        loaded.await()
         mutex.withLock {
             val next = block(_transcript.value)
             runCatching {

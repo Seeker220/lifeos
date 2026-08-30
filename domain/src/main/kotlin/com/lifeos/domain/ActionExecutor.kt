@@ -3,6 +3,7 @@ package com.lifeos.domain
 import com.lifeos.core.ActionExecutorPort
 import com.lifeos.core.AppCatalog
 import com.lifeos.core.DemoPackages
+import com.lifeos.core.Domains
 import com.lifeos.core.EnforceGateway
 import com.lifeos.core.Ids
 import com.lifeos.core.LifeOsLog
@@ -68,6 +69,20 @@ class ActionExecutor(
         return ExecuteReport(applied, skipped)
     }
 
+    override suspend fun reapplyEnforcement() {
+        store.awaitLoaded()
+        val state = store.state.value
+        enforce.applyRules(buildRules(state))
+        if (state.network.mode != NetworkMode.OFF || state.network.domains.isNotEmpty()) {
+            enforce.startNetworkGuard(state.network)
+        }
+        LifeOsLog.d(
+            "LifeOS/Exec",
+            "reapply focus=${state.focus.active} timeouts=${state.appTimeouts.size} " +
+                "windows=${state.focus.windows.size} domains=${state.network.domains.size}",
+        )
+    }
+
     private data class Step(
         val state: CanonicalLifeState,
         val applied: List<AppliedChange> = emptyList(),
@@ -113,6 +128,7 @@ class ActionExecutor(
         is Action.SetFocusWindows -> setFocusWindows(state, action)
         is Action.NetworkSetMode -> networkSetMode(state, action, sideEffects)
         is Action.NetworkSetApps -> networkSetApps(state, action, sideEffects)
+        is Action.NetworkSetDomains -> networkSetDomains(state, action, sideEffects)
         is Action.PromoteEmail -> promoteEmail(state, action)
         is Action.DismissEmail -> dismissEmail(state, action)
         is Action.RevertExpansion -> revertExpansion(state, action, sideEffects)
@@ -481,6 +497,29 @@ class ActionExecutor(
         return ok(next, "Network apps", ChangeKind.NETWORK)
     }
 
+    private fun networkSetDomains(
+        state: CanonicalLifeState,
+        action: Action.NetworkSetDomains,
+        sideEffects: MutableList<() -> Unit>,
+    ): Step {
+        val requested = Domains.expandAll(action.domains)
+        if (requested.isEmpty() && action.domains.isNotEmpty()) {
+            return skip(state, "network_set_domains", "no valid domains")
+        }
+        val next = state.copy(network = state.network.copy(domains = requested))
+        sideEffects += {
+            val rules = store.state.value.network
+            if (rules.domains.isEmpty() && rules.mode == NetworkMode.OFF) enforce.stopNetworkGuard()
+            else enforce.startNetworkGuard(rules)
+        }
+        val label = if (requested.isEmpty()) {
+            "Domains unblocked"
+        } else {
+            "DNS block: ${requested.size} domain${if (requested.size == 1) "" else "s"}"
+        }
+        return ok(next, label, ChangeKind.NETWORK)
+    }
+
     private fun promoteEmail(state: CanonicalLifeState, action: Action.PromoteEmail): Step {
         val candidate = state.emailCandidates.firstOrNull { it.id == action.candidateId }
             ?: return skip(state, "promote_email", "unknown candidate")
@@ -655,6 +694,7 @@ class ActionExecutor(
         is Action.SetFocusWindows -> "set_focus_windows"
         is Action.NetworkSetMode -> "network_set_mode"
         is Action.NetworkSetApps -> "network_set_apps"
+        is Action.NetworkSetDomains -> "network_set_domains"
         is Action.PromoteEmail -> "promote_email"
         is Action.DismissEmail -> "dismiss_email"
         is Action.RevertExpansion -> "revert_expansion"

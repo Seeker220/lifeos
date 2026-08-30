@@ -24,11 +24,17 @@ import kotlinx.coroutines.flow.StateFlow
 interface LifeStateStore {
     val state: StateFlow<CanonicalLifeState>
     suspend fun mutate(block: (CanonicalLifeState) -> CanonicalLifeState)
+
+    /** Suspends until persisted data has been read. In-memory stores are ready immediately. */
+    suspend fun awaitLoaded() {}
 }
 
 interface ChatStore {
     val transcript: StateFlow<ChatTranscript>
     suspend fun mutate(block: (ChatTranscript) -> ChatTranscript)
+
+    /** Suspends until persisted data has been read. In-memory stores are ready immediately. */
+    suspend fun awaitLoaded() {}
 }
 
 interface SecretsStore {
@@ -37,6 +43,12 @@ interface SecretsStore {
 
 interface ActionExecutorPort {
     suspend fun execute(actions: List<Action>, origin: ActionOrigin): ExecuteReport
+
+    /**
+     * Pushes the persisted state back onto the OS. Enforcement lives in services that die
+     * with the process, so it must be re-established on every cold start.
+     */
+    suspend fun reapplyEnforcement()
 }
 
 interface ProjectionPort {
@@ -105,4 +117,7 @@ interface Ports {
     val apps: AppCatalog
     val mailbox: MailboxSync
     val classifier: EmailClassifierPort
+
+    /** Null until :calendar is wired. UI must guard. */
+    val calendar: CalendarPort? get() = null
 }

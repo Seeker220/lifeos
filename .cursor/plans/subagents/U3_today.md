@@ -28,11 +28,11 @@ Design reference: [`../lifeos_ui_redesign.md`](../lifeos_ui_redesign.md) §3.3.
 
 **The "Now" hero card.** Leading `LifeOsCard(level = 2, active = true)`. Resolve the current or next timeline item; show a `ProgressRing` of elapsed fraction, the title, a `TimeNumeric` countdown ("ends in 24m" / "starts in 1h 10m"), and an inline Start Focus CTA. When nothing is scheduled, it becomes a soft prompt to plan the day that navigates to `chat`. Recompute the countdown on a 30-second ticker — use a `LaunchedEffect` with `delay`, not a per-frame recomposition.
 
-**Week strip** replacing the chevrons. Seven horizontally scrollable day pills showing weekday initial and date number. Today is a `Mint400` fill; the selected day gets a `MintWash` ring; days holding items get a small dot beneath. Keep the existing date-selection state in `TodayViewModel` — you are replacing the control, not the model.
+**Week strip** replacing the chevrons. Seven horizontally scrollable day pills showing weekday initial and date number. Today is a `colorScheme.primary` fill; the selected day gets an `AccentWash` ring; days holding items get a small dot beneath. Keep the existing date-selection state in `TodayViewModel` — you are replacing the control, not the model.
 
 **Timeline rail.** A real rail, not a list: `TimeNumeric` time in a fixed-width left gutter, a vertical `BorderSubtle` connector running the full height, a kind-colored dot centred on the line, and a `Surface1` card to the right holding title, subtitle, and a `LineageChip` when `sourceGoalId` is set. Color the dot per `TimelineItem.kind`. Group headers (`MORNING` / `AFTERNOON` / `EVENING`) use `SectionHeader` with a hairline.
 
-**The "now" line.** A `Mint400` horizontal rule with a filled dot, injected at the correct chronological position between items — the single detail that makes a timeline feel live. Skip it when viewing a day other than today.
+**The "now" line.** An `AccentVivid` horizontal rule with a filled dot, injected at the correct chronological position between items — the single detail that makes a timeline feel live. Skip it when viewing a day other than today.
 
 **Completion.** Tapping an item's checkbox strikes the title through, fades the row to 40%, and collapses it with `Motion.standard`. Use U0's `AnimatedCheckbox`.
 
@@ -44,7 +44,7 @@ Design reference: [`../lifeos_ui_redesign.md`](../lifeos_ui_redesign.md) §3.3.
 
 ## Calendar events (soft dependency on U7)
 
-U7 adds `CalendarPort.readRange`. Render external device events **in the same rail**, tinted `Info`, with a "Google Calendar" source label so they are visibly not LifeOS-owned, and non-completable.
+U7 adds `CalendarPort.readRange`. Render external device events **in the same rail**, tinted `Success`, with a "Google Calendar" source label so they are visibly not LifeOS-owned, and non-completable.
 
 U7 may not have landed when you start. Guard it: resolve the port through a nullable lookup and render nothing when absent. Do not add a hard dependency, do not edit `core/`, and do not block on U7.
 
